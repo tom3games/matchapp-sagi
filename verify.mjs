@@ -13,12 +13,33 @@ for (let i = 0; i < 60; i++) { try { await fetch(`http://localhost:${PORT}/`); b
 const URL0 = `http://localhost:${PORT}/`
 const HELP = `
 window.__h = {
-  to(seed, ids) { MA.act.start(seed); MA.dbg.pause(); for (let i = 0; i < 14 && MA.S.phase === 'swipe'; i++) { const g = MA.S.order[MA.S.idx]; if (ids.includes(g.id) && MA.S.likesLeft) MA.act.like(); else MA.act.pass(); if (MA.S.liked.length === ids.length && MA.S.phase === 'swipe') { MA.dbg.step(400); MA.act.endSwipe(); break } MA.dbg.step(400) } MA.act.toChat(); return MA.S.chats.map(c => c.g.id) },
+  to(seed, ids, order) { for (let k = 0; k < 40; k++) { MA.act.start(seed + k * 101); if (ids.every(id => MA.S.order.some(g => g.id === id))) break } MA.dbg.pause(); MA.dbg.pause(); for (let i = 0; i < 14 && MA.S.phase === 'swipe'; i++) { const g = MA.S.order[MA.S.idx]; if (ids.includes(g.id) && MA.S.likesLeft) MA.act.like(); else MA.act.pass(); if (MA.S.liked.length === ids.length && MA.S.phase === 'swipe') { MA.dbg.step(400); MA.act.endSwipe(); break } MA.dbg.step(400) } if (order) for (const k in order) MA.S.porder[k] = order[k]; MA.act.toChat(); return MA.S.chats.map(c => c.g.id) },
   ci(id) { return MA.S.chats.findIndex(c => c.g.id === id) },
-  wait(id, ms = 120000) { const i = this.ci(id); let n = 0; while (n < ms && !['mine', 'offer', 'done'].includes(MA.S.chats[i].state)) { MA.dbg.step(250); n += 250 } return MA.S.chats[i].state },
-  reply(id, pick, gap = 4000) { const i = this.ci(id); const st = this.wait(id); if (st !== 'mine') return st; const c = MA.S.chats[i]; const since = MA.dbg && (MA.G.t - c.arrivedAt); if (since < gap) MA.dbg.step(gap - since); MA.act.open(i); const o = c.g.chat[c.r].o, b = MA.opts(); const k = pick === 'good' ? b.find(k => o[k].g > 0) ?? b[0] : pick === 'bad' ? b.find(k => o[k].g < 0) ?? b[0] : pick === 'instant' ? b.find(k => o[k].flag === 'instant') : typeof pick === 'number' ? b[pick] : b[0]; MA.act.chooseK(k); MA.act.back(); return 'sent' },
-  play(id, pick, gap) { for (let n = 0; n < 6; n++) { const st = this.wait(id); if (st !== 'mine') return st; this.reply(id, pick, gap) } return this.wait(id) },
-  meet(id, v) { const i = this.ci(id); MA.act.open(i); MA.act.meet(v); MA.act.back(); MA.dbg.step(2000) },
+  c(id) { return MA.S.chats[this.ci(id)] },
+  // 待つ間、未読がたまった部屋は開いて読む（人も一覧を見て読む）
+  wait(id, ms = 200000) { const c = this.c(id); let n = 0; while (n < ms && !['mine', 'offer', 'clash', 'done'].includes(c.state) && !(c.state === 'sus' && c.patLen)) { MA.dbg.step(250); n += 250; if (n % 5000 === 0) { const o = MA.S.open; MA.S.chats.forEach((x, i) => { if (x.unread) { MA.act.open(i); MA.act.back() } }); if (o >= 0) MA.act.open(o) } } return c.state },
+  // pol: good（礼儀よく探る）/ social（ふつうの返しだけ）/ probe（探りだけ）/ bad / 数字（その番号の選択肢）
+  say(id, pol = 'good', gap = 4000) {
+    const c = this.c(id), st = this.wait(id); if (st !== 'mine') return st
+    const since = MA.G.t - c.arrivedAt; if (since < gap) MA.dbg.step(gap - since)
+    MA.act.open(this.ci(id)); const o = MA.opts()
+    const isP = x => x.k === 'p', polite = x => isP(x) && MA.PROBES.find(p => p.id === x.id).min <= c.turn, sg = x => x.k === 's' && MA.SOCIAL.find(s => s.id === x.id).g > 0, sb = x => x.k === 's' && !sg(x)
+    let i = 0
+    if (typeof pol === 'number') i = pol
+    else if (pol === 'good') { i = o.findIndex(x => polite(x)); if (i < 0 || c.run >= 3) i = o.findIndex(sg); if (i < 0) i = o.findIndex(polite); if (i < 0) i = 0 }
+    else if (pol === 'social') { i = o.findIndex(sg); if (i < 0) i = o.findIndex(polite); if (i < 0) i = o.findIndex(x => x.k === 's') }
+    else if (pol === 'probe') i = Math.max(0, o.findIndex(isP))
+    else if (pol === 'bad') { i = o.findIndex(sb); if (i < 0) i = 0 }
+    MA.act.choose(i); MA.act.back(); return 'sent'
+  },
+  talk(id, n, pol, gap) { for (let k = 0; k < n; k++) { const st = this.say(id, pol, gap); if (st !== 'sent') return st } return this.wait(id) },
+  inv(id) { this.wait(id); MA.act.open(this.ci(id)); MA.act.invite(); MA.act.back(); return this.wait(id) },
+  // 会う約束まで進める（慎重な子は5往復以上してから誘う）
+  date(id) { const tk = MA.TALK[id]; for (let k = 0; k < 14; k++) { const st = this.wait(id); if (st !== 'mine') return st; const c = this.c(id); if (tk.cautious && c.turn >= 6 && c.aff >= 1 && c.turn >= c.invBlock) { this.inv(id); continue } this.say(id, tk.cautious && c.aff < 1 ? 'social' : 'good') } return this.wait(id) },
+  meet(id, v) { MA.act.open(this.ci(id)); MA.act.meet(v); MA.act.back(); MA.dbg.step(2000) },
+  // 待ち合わせの場面を最後まで（2回目: d2=true/false、good=2回目で良い返し）
+  meets(d2 = false, good = true) { for (let k = 0; k < 40 && MA.S.phase === 'meet'; k++) { MA.dbg.step(3000); if (MA.S.d2q) { MA.act.d2ask(d2); continue } const d = MA.d2opts(); if (d.length) { const g = MA.GIRLS.find(x => x.id === MA.S.met[MA.S.mi]), o = g.date2.o; MA.act.date2K(d.find(x => good ? o[x].g > 0 : o[x].g < 0)); continue } MA.act.nextMeet() } MA.dbg.step(3000); return MA.S.ending },
+  finish() { MA.dbg.step(5000); if (MA.S.phase === 'chat') MA.dbg.fizzleAll(); MA.dbg.step(3000); return MA.S.phase },
 }`
 let pass = 0, fail = 0
 const results = []
@@ -111,7 +132,7 @@ await t('プロフ全文を開いて閉じる', async () => {
 })
 await t('全員見送り（何もしない）: 0点・最下位・結果に誰も出ない', async () => {
   const r = await p.evaluate(() => { const b = window.__bot('nothing', 3, 300); return { ...b, rows: document.querySelectorAll('.eRow').length, none: !!document.querySelector('.eNone') } })
-  expect(r.phase === 'end' && r.pts === 0 && r.rank === 0 && r.rows === 0 && r.none, JSON.stringify(r)); return r
+  expect(r.phase === 'end' && r.pts === 0 && r.rank === 0 && r.rows === 0 && r.none && r.end === 'sleep', JSON.stringify(r)); return r
 })
 await t('同じ種なら同じ並びと同じ結果（3回）', async () => {
   const a = await p.evaluate(() => { const o = []; for (let i = 0; i < 3; i++) { const r = window.__bot('random', 11, 300); o.push(JSON.stringify(r) + MA.S.order.map(g => g.id).join('')) } return o })
@@ -124,99 +145,128 @@ await t('スワイプに時間制限が無い（10分放置しても進まない
 })
 // 補助（ページの中）: 指定した子だけいいねしてトークへ／返事が来るまで待つ／返す
 await t('同時進行: 複数の子から返事がずれて届き、未読の数と通知が出る', async () => {
-  const r = await p.evaluate(() => { __h.to(5, ['a', 'd', 'i', 'j']); MA.dbg.step(20000); const at = MA.S.chats.map(c => c.arrivedAt).filter(Boolean).sort((a, b) => a - b); return { n: at.length, gaps: at.slice(1).map((x, i) => x - at[i]), badges: [...document.querySelectorAll('.crow .badge')].map(b => +b.textContent), rows: document.querySelectorAll('.crow').length } })
+  const r = await p.evaluate(() => { __h.to(5, ['a', 'd', 'i', 'j']); MA.dbg.step(20000); const at = MA.S.chats.map(c => c.arrivedAt).filter(Boolean).sort((a, b) => a - b); return { n: at.length, gaps: at.slice(1).map((x, i) => x - at[i]), badges: [...document.querySelectorAll('.crow .badge')].length, rows: document.querySelectorAll('.crow').length } })
   await p.screenshot({ path: ROOT + '/shots/v-chatlist.png' })
-  expect(r.n >= 3 && r.gaps.every(g => g >= 3999) && r.badges.length >= 2 && r.rows === 4, JSON.stringify(r)); return r
+  expect(r.n >= 3 && r.gaps.every(g => g >= 3999) && r.badges >= 2 && r.rows === 4, JSON.stringify(r)); return r
 })
-await t('返事はすぐ来ない（入力中→数秒後）・未読は一度に3件まで', async () => {
-  const r = await p.evaluate(() => {
-    __h.to(5, ['e', 'f', 'i', 'j']); MA.dbg.step(60000)
-    const unread = MA.S.chats.reduce((a, c) => a + c.unread, 0)
-    // 1人に返して、相手の返事が来るまでの時間を測る
-    const i = __h.ci('a') >= 0 ? __h.ci('a') : 0, c = MA.S.chats[0]; MA.act.open(0); const t0 = MA.G.t; MA.act.choose(0); MA.act.back()
-    let n = 0; const len = c.log.length; while (c.log.length < len + 1 + 1 && n < 30000) { MA.dbg.step(100); n += 100 }
-    return { unread, waited: MA.G.t - t0 }
-  })
+await t('返事はすぐ来ない・未読は一度に3件まで', async () => {
+  const r = await p.evaluate(() => { __h.to(5, ['e', 'f', 'i', 'j']); MA.dbg.step(60000); const unread = MA.S.chats.reduce((a, c) => a + c.unread, 0); const c = MA.S.chats[0]; MA.act.open(0); const t0 = MA.G.t, n0 = c.log.length; MA.act.choose(0); MA.act.back(); let n = 0; while (c.log.length < n0 + 2 && n < 30000) { MA.dbg.step(100); n += 100 } return { unread, waited: MA.G.t - t0 } })
   expect(r.unread <= 3 && r.waited >= 1200, JSON.stringify(r)); return r
 })
+await t('トークは長い: 慎重な子は5往復より前に誘うと断られ、6往復ほどで会える', async () => {
+  const r = await p.evaluate(() => { __h.to(5, ['a']); __h.talk('a', 2); const early = __h.inv('a'); const e = { st: early, aff: __h.c('a').aff, txt: __h.c('a').log.slice(-1)[0].text }; const st = __h.date('a'); return { e, st, turn: __h.c('a').turn } })
+  expect(r.e.st === 'mine' && /もう少し/.test(r.e.txt) && r.st === 'offer' && r.turn >= 6, JSON.stringify(r)); return r
+})
+await t('すぐ会いたがる子（業者）は3往復で向こうから誘ってくる', async () => {
+  const r = await p.evaluate(() => { __h.to(5, ['j']); const st = __h.talk('j', 3, 'social'); return { st, turn: __h.c('j').turn, ask: __h.c('j').log.some(m => /紹介したい/.test(m.text)) } })
+  expect(r.st === 'offer' && r.turn === 3 && r.ask, JSON.stringify(r))
+})
+await t('探り: 早すぎる質問は引かれる・質問攻めも引かれる', async () => {
+  const r = await p.evaluate(() => {
+    __h.to(5, ['a'], { a: ['ex', 'photo', 'hol', 'job', 'app', 'area', 'night', 'call'] }); __h.say('a', 'probe'); MA.dbg.step(15000)
+    const rude = { aff: __h.c('a').aff, txt: __h.c('a').log.filter(m => m.who === 'her').slice(-1)[0].text }
+    __h.to(6, ['b']); for (let k = 0; k < 4; k++) __h.say('b', 'probe'); MA.dbg.step(20000)
+    const many = __h.c('b').log.filter(m => m.who === 'her').slice(-1)[0].text
+    return { rude, many }
+  })
+  expect(/いきなり/.test(r.rude.txt) && r.rude.aff === -1 && /質問ばっかり/.test(r.many), JSON.stringify(r)); return r
+})
+await t('ほころび: 写真詐欺は全身写真をはぐらかす・昔の写真は閉店の話・業者は仕事で話をそらす・お店の子はシフト', async () => {
+  const r = await p.evaluate(() => {
+    const ask = (id, pid) => { __h.to(7, [id], { [id]: [pid, 'hol', 'job', 'app', 'area', 'night', 'photo', 'call', 'ex'].filter((x, i, a) => a.indexOf(x) === i) }); __h.wait(id); __h.c(id).turn = MA.PROBES.find(p => p.id === pid).min; __h.say(id, 'probe'); MA.dbg.step(20000); const want = MA.TALK[id].ans[pid][0]; const m = __h.c(id).heard.find(x => x.text.endsWith(want)) || { text: 'none' }; return { t: m.text, clue: !!m.clue } }
+    return { d: ask('d', 'photo'), l: ask('l', 'area'), j: ask('j', 'job'), k: ask('k', 'hol'), f: ask('f', 'ex'), a: ask('a', 'photo') }
+  })
+  expect(r.d.clue && /会えば/.test(r.d.t) && r.l.clue && /閉まった/.test(r.l.t) && r.j.clue && /それより/.test(r.j.t) && r.k.clue && /シフト/.test(r.k.t) && r.f.clue && /浮気/.test(r.f.t) && !r.a.clue, JSON.stringify(r)); return r
+})
 await t('待ち時間切れ: 即キレの子は10秒でマッチ解除（自己紹介に「返信遅い人はムリ」）', async () => {
-  const r = await p.evaluate(() => { __h.to(5, ['h']); __h.wait('h'); MA.dbg.step(11000); const c = MA.S.chats[0]; return { left: c.left, pat: c.g.pat, intro: c.g.intro[0].includes('返信遅い人はムリ') } })
-  await p.evaluate(() => MA.dbg.step(4000))
-  const ph = await p.evaluate(() => MA.S.phase)
-  expect(r.left && r.pat === 10 && r.intro && ph === 'end', JSON.stringify([r, ph]))
+  const r = await p.evaluate(() => { __h.to(5, ['h']); __h.wait('h'); MA.dbg.step(11000); const c = __h.c('h'); return { left: c.left, pat: c.g.pat, intro: c.g.intro[0].includes('返信遅い人はムリ') } })
+  const e = await p.evaluate(() => { MA.dbg.step(4000); return { phase: MA.S.phase, view: MA.view(), end: MA.S.ending } })
+  await p.screenshot({ path: ROOT + '/shots/v-ending-silent.png' })
+  expect(r.left && r.pat === 10 && r.intro && e.view === 'vEnding' && e.end === 'silent', JSON.stringify([r, e]))
 })
-await t('ふつうの子は90秒待ってくれる・過ぎると「？」で次の話題へ', async () => {
-  const r = await p.evaluate(() => { __h.to(5, ['a']); __h.wait('a'); MA.dbg.step(60000); const mid = MA.S.chats[0].r; MA.dbg.step(31000); const c = MA.S.chats[0]; return { mid, r: c.r, left: c.left, q: c.log.some(m => m.text === '？') } })
-  expect(r.mid === 0 && r.r === 1 && !r.left && r.q, JSON.stringify(r))
+await t('ふつうの子は90秒待ってくれる・過ぎると「？」', async () => {
+  const r = await p.evaluate(() => { __h.to(5, ['a']); __h.wait('a'); MA.dbg.step(60000); const mid = __h.c('a').turn; MA.dbg.step(31000); const c = __h.c('a'); return { mid, turn: c.turn, left: c.left, q: c.log.some(m => m.text === '？') } })
+  expect(r.mid === 0 && r.turn === 1 && !r.left && r.q, JSON.stringify(r))
 })
-await t('返信が早すぎると引く子: すぐ返し続けると誘いが来ない・間をあけると会える', async () => {
-  const fast = await p.evaluate(() => { __h.to(5, ['a']); const st = __h.play('a', 'good', 0); MA.dbg.step(4000); return { st, offered: MA.S.chats[0].offered, rushed: MA.S.chats[0].rushed, line: MA.S.chats[0].log.some(m => m.text.startsWith('返信はやい')) } })
-  const slow = await p.evaluate(() => { __h.to(5, ['a']); const st = __h.play('a', 'good', 4000); return { st, offered: MA.S.chats[0].offered } })
-  expect(!fast.offered && fast.rushed === 3 && fast.line && slow.st === 'offer' && slow.offered, JSON.stringify([fast, slow]))
+await t('返信が早すぎると引く子がいる（みのり）', async () => {
+  const r = await p.evaluate(() => { __h.to(5, ['a']); __h.talk('a', 3, 'social', 0); const c = __h.c('a'); return { rushed: c.rushed, line: c.log.some(m => m.text.startsWith('返信はやい')) } })
+  expect(r.rushed === 3 && r.line, JSON.stringify(r))
 })
-await t('当たりは良い返しで会える・悪い返しだと誘いが来ない', async () => {
-  const g = await p.evaluate(() => { __h.to(5, ['b']); return __h.play('b', 'good') })
-  const b = await p.evaluate(() => { __h.to(5, ['b']); const st = __h.play('b', 'bad'); MA.dbg.step(3000); return { st, phase: MA.S.phase } })
-  expect(g === 'offer' && b.st === 'done' && b.phase === 'end', JSON.stringify([g, b]))
+await t('メモ: 吹き出しを押すと残り、プロフと答え合わせに出る', async () => {
+  const r = await p.evaluate(() => {
+    __h.to(7, ['d'], { d: ['photo', 'hol', 'job', 'app', 'area', 'night', 'call', 'ex'] }); __h.wait('d'); __h.c('d').turn = 5; __h.say('d', 'probe'); MA.dbg.step(20000)
+    MA.act.open(0); const el = [...document.querySelectorAll('#msgs .msg.her')].find(e => /会えば/.test(e.textContent)); el.click()
+    document.querySelector('#cAv').click(); const pm = document.querySelector('#prof .pm') ? document.querySelector('#prof .pm').textContent : ''; document.querySelector('#profClose').click()
+    MA.act.back(); return { memo: __h.c('d').memo.length, pm }
+  })
+  await p.screenshot({ path: ROOT + '/shots/v-memo.png' })
+  expect(r.memo === 1 && /会えば/.test(r.pm), JSON.stringify(r))
 })
-await t('褒めると即「会お」: 誰にでも会う子', async () => {
-  const r = await p.evaluate(() => { __h.to(5, ['i']); __h.reply('i', 'instant'); return { st: __h.wait('i'), r: MA.S.chats[0].r } })
-  expect(r.st === 'offer' && r.r === 0, JSON.stringify(r))
-})
-await t('会う・会わない: 写真詐欺の子は会うと別人・マイナス／断ると見抜いた点', async () => {
-  const met = await p.evaluate(() => { __h.to(5, ['d']); __h.play('d', 0); __h.meet('d', true); MA.dbg.step(4000); return { view: MA.view(), real: document.querySelector('#mtReal').src.includes('dm.webp'), prof: document.querySelector('#mtProf').src.includes('d1.webp'), verdict: document.querySelector('#mtVerdict').textContent } })
+await t('会う: 写真詐欺の子は会うと別人。画面に「当たり」「外れ」の言葉が出ない', async () => {
+  const r = await p.evaluate(() => { __h.to(5, ['d']); __h.date('d'); __h.meet('d', true); MA.dbg.step(4000); return { view: MA.view(), real: document.querySelector('#mtReal').src.includes('dm.webp'), tag: document.querySelector('#mtVerdict').textContent, words: /当たり|外れ/.test(document.body.innerText), d2: MA.S.d2q } })
   await p.screenshot({ path: ROOT + '/shots/v-meet-sagi.png' })
-  const s1 = await p.evaluate(() => { MA.act.nextMeet(); MA.dbg.step(500); return MA.score() })
-  const s2 = await p.evaluate(() => { __h.to(5, ['d']); __h.play('d', 0); __h.meet('d', false); return MA.score() })
-  expect(met.view === 'vMeet' && met.real && met.prof && met.verdict === '写真詐欺' && s1.metBad === 1 && s1.pts === -20 && s2.avoid === 1 && s2.pts === 15, JSON.stringify([met, s1.pts, s2.pts]))
+  expect(r.view === 'vMeet' && r.real && r.tag === '写真と別人' && !r.words && r.d2, JSON.stringify(r))
+})
+await t('2回目は、どの子でも自分で決める（写真詐欺の子と話が合う道 → 写真より本人）', async () => {
+  const r = await p.evaluate(() => { MA.act.d2ask(true); MA.dbg.step(300); const n = MA.d2opts().length; const o = MA.GIRLS.find(g => g.id === 'd').date2.o; MA.act.date2K(o.findIndex(x => x.g > 0)); MA.dbg.step(500); MA.act.nextMeet(); MA.dbg.step(500); return { n, end: MA.S.ending, view: MA.view(), title: document.querySelector('#enTitle').textContent, words: /当たり|外れ/.test(document.body.innerText) } })
+  await p.screenshot({ path: ROOT + '/shots/v-ending-honest.png' })
+  expect(r.n === 3 && r.end === 'honest' && r.view === 'vEnding' && r.title === '写真より、本人' && !r.words, JSON.stringify(r))
 })
 await t('会うかの返事をしないと「会わない」扱いにもならない（点も無い）', async () => {
-  const r = await p.evaluate(() => { __h.to(5, ['j']); const st = __h.play('j', 0); MA.dbg.step(65000); return { st, s: MA.score().pts, phase: MA.S.phase, meet: MA.S.chats[0].meet } })
+  const r = await p.evaluate(() => { __h.to(5, ['j']); const st = __h.talk('j', 3, 'social'); MA.dbg.step(65000); return { st, s: MA.score().pts, phase: MA.S.phase, meet: __h.c('j').meet } })
   expect(r.st === 'offer' && r.s === 0 && r.phase === 'end' && r.meet === null, JSON.stringify(r))
 })
 await t('お店の営業: どの返事にも同じ温度・会うと伝票', async () => {
-  const r = await p.evaluate(() => { const reps = MA.GIRLS.find(g => g.id === 'k').chat[0].o.map(o => o.r[0].slice(0, 5)); __h.to(5, ['k']); __h.play('k', 2); __h.meet('k', true); MA.dbg.step(4000); return { reps, bill: !document.querySelector('#mtBill').hidden, total: document.querySelector('#mtBill .tot').textContent } })
+  const r = await p.evaluate(() => { const tk = MA.TALK.k; const temp = tk.nice.concat(tk.meh).every(x => x[0].startsWith('えーやばい')); __h.to(5, ['k']); __h.date('k'); __h.meet('k', true); MA.dbg.step(4000); return { temp, bill: !document.querySelector('#mtBill').hidden, total: document.querySelector('#mtBill .tot').textContent } })
   await p.screenshot({ path: ROOT + '/shots/v-meet-concafe.png' })
-  expect(new Set(r.reps).size === 1 && r.bill && /8,500/.test(r.total), JSON.stringify(r))
+  expect(r.temp && r.bill && /8,500/.test(r.total), JSON.stringify(r))
 })
-await t('トーク中に相手の顔を押すとプロフ（写真の切り替え）が開き、その間は待ち時間が減らない', async () => {
-  const r = await p.evaluate(() => { __h.to(5, ['h']); __h.wait('h'); MA.act.open(0); const c = MA.S.chats[0]; document.querySelector('#cAv').click(); const open = !document.querySelector('#prof').hidden; const a = MA.G.t; MA.dbg.step(30000); const held = MA.G.t - a; document.querySelector('#profImg').dispatchEvent(new MouseEvent('click', { clientX: innerWidth - 5, clientY: 200, bubbles: true })); const ph = MA.S.profPh; document.querySelector('#profClose').click(); return { open, held, ph, left: c.left, state: c.state } })
+await t('トーク中に顔を押すとプロフが開き、その間は待ち時間が減らない', async () => {
+  const r = await p.evaluate(() => { __h.to(5, ['h']); __h.wait('h'); MA.act.open(0); const c = __h.c('h'); document.querySelector('#cAv').click(); const open = !document.querySelector('#prof').hidden; const a = MA.G.t; MA.dbg.step(30000); const held = MA.G.t - a; document.querySelector('#profImg').dispatchEvent(new MouseEvent('click', { clientX: innerWidth - 5, clientY: 200, bubbles: true })); const ph = MA.S.profPh; document.querySelector('#profClose').click(); return { open, held, ph, left: c.left, state: c.state } })
   await p.screenshot({ path: ROOT + '/shots/v-chatroom.png' })
   expect(r.open && r.held === 0 && r.ph === 1 && !r.left && r.state === 'mine', JSON.stringify(r))
 })
-await t('結果に出るのは、いいねした子だけ（見送った子は出ない）', async () => {
-  const r = await p.evaluate(() => { __h.to(5, ['d', 'k']); __h.play('d', 0); __h.play('k', 0); __h.meet('d', false); __h.meet('k', false); MA.dbg.step(3000); return { phase: MA.S.phase, names: [...document.querySelectorAll('.eRow .nm')].map(e => e.textContent) } })
-  expect(r.phase === 'end' && r.names.length === 2 && r.names.includes('りな') && r.names.includes('ここな'), JSON.stringify(r))
+await t('ダブルブッキング: リスケをすぐ了承する子／両方と会うと修羅場', async () => {
+  const r1 = await p.evaluate(() => { __h.to(5, ['a', 'c']); __h.date('a'); __h.meet('a', true); __h.date('c'); MA.act.open(__h.ci('c')); MA.act.meet(true); const st = __h.c('c').state; const q = document.querySelectorAll('#opts button').length; MA.act.clash('other'); MA.dbg.step(4000); MA.act.back(); return { st, q, resched: MA.S.resched, met: MA.S.met.slice(), moved: __h.c('a').moved } })
+  const r2 = await p.evaluate(() => { __h.to(5, ['a', 'c']); __h.date('a'); __h.meet('a', true); __h.date('c'); MA.act.open(__h.ci('c')); MA.act.meet(true); MA.act.clash('both'); MA.act.back(); __h.finish(); __h.meets(); return { end: MA.S.ending, clash: MA.S.clash } })
+  await p.screenshot({ path: ROOT + '/shots/v-ending-clash.png' })
+  expect(r1.st === 'clash' && r1.q === 3 && r1.resched === 1 && r1.met.length === 2 && r1.moved && r2.end === 'clash', JSON.stringify([r1, r2]))
 })
-// 当たりの子に良い返しで会う所まで進める
-const meetAtari = async (id) => p.evaluate(id => { __h.to(5, [id]); __h.play(id, 'good'); __h.meet(id, true); MA.dbg.step(3000); const nb = document.querySelector('#bMtNext').textContent; MA.act.nextMeet(); MA.dbg.step(300); return { nb, d2: MA.d2opts().length, head: document.querySelector('#mtWhen').textContent } }, id)
-await t('2回目のデート: 当たりに会うと場面が出て、良い返しで続く（+30）', async () => {
-  const a = await meetAtari('a')
-  await p.screenshot({ path: ROOT + '/shots/v-date2.png' })
-  const r = await p.evaluate(() => { const o = MA.GIRLS.find(g => g.id === 'a').date2.o; MA.act.date2K(o.findIndex(x => x.g > 0)); MA.dbg.step(500); const v = document.querySelector('#mtVerdict').textContent; MA.act.nextMeet(); MA.dbg.step(500); const s = MA.score(); return { v, pts: s.pts, d2ok: s.d2ok, phase: MA.S.phase, row: document.querySelector('#eList').textContent.includes('続いた') } })
-  expect(a.nb === '2回目のデートへ' && a.d2 === 3 && a.head === '2回目のデート' && r.v === '続いた' && r.d2ok === 1 && r.pts === 70 && r.phase === 'end' && r.row, JSON.stringify([a, r]))
+await t('リスケで疑う子: 「他に女いるの？」→ 返し方で持ち直す／切られる', async () => {
+  const run = k => p.evaluate(k => { __h.to(5, ['e', 'i']); __h.date('e'); __h.meet('e', true); __h.date('i'); MA.act.open(__h.ci('i')); MA.act.meet(true); MA.act.clash('other'); MA.act.back(); __h.wait('i'); MA.act.open(__h.ci('i')); const q = __h.c('i').log.some(m => /他に女/.test(m.text)); const n = document.querySelectorAll('#opts button').length; MA.act.sus(k); MA.dbg.step(4000); MA.act.back(); return { q, n, eMet: MA.S.met.includes('e'), cut: !!__h.c('e').cut } }, k)
+  const keep = await run(0), cut = await run(2)
+  expect(keep.q && keep.n === 3 && keep.eMet && !keep.cut && cut.cut && !cut.eMet, JSON.stringify([keep, cut]))
 })
-await t('2回目のデート: 雑に扱うと切られる・待たせても切られる（+0）', async () => {
-  await meetAtari('b')
-  const r1 = await p.evaluate(() => { const o = MA.GIRLS.find(g => g.id === 'b').date2.o; MA.act.date2K(o.findIndex(x => x.g < 0)); MA.dbg.step(500); const v = document.querySelector('#mtVerdict').textContent; MA.act.nextMeet(); MA.dbg.step(500); return { v, pts: MA.score().pts, row: document.querySelector('#eList').textContent.includes('フラれた') } })
-  await meetAtari('a')
-  const r2 = await p.evaluate(() => { MA.dbg.step(61000); const v = document.querySelector('#mtVerdict').textContent; return { v, d2: MA.S.d2.a } })
-  expect(r1.v === 'フラれた' && r1.pts === 40 && r1.row && r2.v === 'フラれた' && r2.d2 && r2.d2.ok === false, JSON.stringify([r1, r2]))
+await t('エンディング: 重たい子と会うと決めたあと、ほかの子に返すとバッドエンド', async () => {
+  const r = await p.evaluate(() => { __h.to(5, ['f', 'b']); __h.date('f'); __h.meet('f', true); __h.say('b', 'social'); __h.finish(); __h.meets(); return { end: MA.S.ending, title: document.querySelector('#enTitle').textContent } })
+  await p.screenshot({ path: ROOT + '/shots/v-ending-stalk.png' })
+  expect(r.end === 'stalk' && r.title === '既読、見てたよ', JSON.stringify(r))
 })
-await t('昔の写真の子: 会うと5年後の本人・答え合わせに日付', async () => {
-  await p.evaluate(() => { MA.act.nextMeet(); MA.dbg.step(500) })
-  const r = await p.evaluate(() => { __h.to(5, ['l']); __h.play('l', 0); __h.meet('l', true); MA.dbg.step(3000); return { real: document.querySelector('#mtReal').src.includes('lm.webp'), v: document.querySelector('#mtVerdict').textContent, nb: document.querySelector('#bMtNext').textContent } })
-  await p.screenshot({ path: ROOT + '/shots/v-meet-mukashi.png' })
-  const c = await p.evaluate(() => { MA.act.nextMeet(); MA.dbg.step(500); MA.act.openClue(MA.GIRLS.find(g => g.id === 'l')); const t = document.querySelector('#clueList').textContent; document.querySelector('#clueClose').click(); return { t, pts: MA.score().pts } })
-  expect(r.real && r.v === '昔の写真' && r.nb === '次へ' && /2021/.test(c.t) && c.pts === -20, JSON.stringify([r, c]))
+await t('エンディング: 1人とだけまっすぐ → アプリを消した夜／2人と続ける → 同じ改札で', async () => {
+  const best = await p.evaluate(() => { __h.to(5, ['a']); __h.date('a'); __h.meet('a', true); __h.finish(); return __h.meets(true, true) })
+  const two = await p.evaluate(() => { __h.to(5, ['a', 'b']); __h.date('a'); __h.meet('a', true); __h.date('b'); __h.meet('b', true); __h.finish(); return __h.meets(true, true) })
+  expect(best === 'best' && two === 'futamata', JSON.stringify([best, two]))
 })
-await t('結果: 答え合わせが開く（写真詐欺は手首）', async () => {
-  await p.evaluate(() => { __h.to(5, ['d']); __h.play('d', 0); __h.meet('d', true); MA.dbg.step(3000); MA.act.nextMeet(); MA.dbg.step(500) })
-  await p.click('#eList .eRow >> nth=0')
-  const r = await p.evaluate(() => ({ open: !document.querySelector('#clue').hidden, txt: document.querySelector('#clueList').textContent, pics: document.querySelectorAll('#cluePics img').length }))
+await t('エンディング: 業者 → セミナー／お店 → スタンプカード／会っても続かない → ふりだし／誰とも会わない → 寝る', async () => {
+  const one = id => p.evaluate(id => { __h.to(5, [id]); __h.date(id); __h.meet(id, true); __h.finish(); return __h.meets(false) }, id)
+  const sem = await one('j'), reg = await one('k'), again = await one('g')
+  const sleep = await p.evaluate(() => { __h.to(5, ['b']); __h.date('b'); __h.meet('b', false); __h.finish(); MA.dbg.step(3000); return MA.S.ending })
+  expect(sem === 'seminar' && reg === 'regular' && again === 'again' && sleep === 'sleep', JSON.stringify([sem, reg, again, sleep]))
+})
+await t('エンディング: リスケを重ねるとバレる', async () => {
+  const r = await p.evaluate(() => { __h.to(5, ['a', 'c', 'd', 'l']); __h.date('a'); __h.meet('a', true); __h.date('c'); MA.act.open(__h.ci('c')); MA.act.meet(true); MA.act.clash('other'); MA.dbg.step(4000); MA.act.back(); __h.date('d'); __h.meet('d', true); __h.date('l'); MA.act.open(__h.ci('l')); MA.act.meet(true); MA.act.clash('other'); MA.dbg.step(4000); MA.act.back(); __h.finish(); return { end: __h.meets(), resched: MA.S.resched } })
+  expect(r.end === 'exposed' && r.resched === 2, JSON.stringify(r))
+})
+await t('エンディング一覧: 見たものは題、見ていないものはヒント。同じ行動なら同じ結末', async () => {
+  const r = await p.evaluate(() => { const a = MA.act.seen().length; const e1 = (() => { __h.to(5, ['j']); __h.date('j'); __h.meet('j', true); __h.finish(); return __h.meets(false) })(); const e2 = (() => { __h.to(5, ['j']); __h.date('j'); __h.meet('j', true); __h.finish(); return __h.meets(false) })(); MA.act.toNote(); document.querySelector('#bEnds').click(); const list = document.querySelector('#endsList').textContent; const hidden = document.querySelectorAll('#endsList .no').length; document.querySelector('#endsClose').click(); return { a, e1, e2, seen: MA.act.seen().length, total: MA.S && document.querySelectorAll('#endsList div').length, hidden, list: list.slice(0, 60) } })
+  await p.screenshot({ path: ROOT + '/shots/v-endlist.png' })
+  expect(r.e1 === r.e2 && r.seen >= 10 && r.hidden === 11 - r.seen && r.total === 11, JSON.stringify(r)); return r
+})
+await t('結果: いいねした子だけが並び、答え合わせに手がかりと「この一言」が出る', async () => {
+  const r = await p.evaluate(() => { __h.to(7, ['d', 'k'], { d: ['photo', 'hol', 'job', 'app', 'area', 'night', 'call', 'ex'] }); __h.wait('d'); __h.c('d').turn = 5; __h.say('d', 'probe'); MA.dbg.step(15000); __h.date('d'); __h.meet('d', false); __h.date('k'); __h.meet('k', false); __h.finish(); MA.dbg.step(3000); MA.act.toNote(); const names = [...document.querySelectorAll('.eRow .nm')].map(e => e.textContent); MA.act.openClue(MA.GIRLS.find(g => g.id === 'd')); const txt = document.querySelector('#clueList').textContent; return { names, txt, words: /当たり|外れ/.test(document.body.innerText) } })
   await p.screenshot({ path: ROOT + '/shots/v-clue.png' })
-  await p.click('#clueClose')
-  expect(r.open && /手首/.test(r.txt) && r.pics === 2, JSON.stringify(r))
+  await p.evaluate(() => document.querySelector('#clueClose').click())
+  expect(r.names.length === 2 && /手首/.test(r.txt) && /この一言/.test(r.txt) && /会えば/.test(r.txt) && !r.words, JSON.stringify(r))
 })
 await t('結果の画像が描ける（1080x1350・絵が入っている）', async () => {
   const r = await p.evaluate(async () => { const cv = await MA.act.makeCard(); const d = cv.getContext('2d').getImageData(0, 0, 1080, 1350).data; let s = 0, s2 = 0, n = 0; for (let i = 0; i < d.length; i += 4 * 97) { const v = d[i] * .3 + d[i + 1] * .59 + d[i + 2] * .11; s += v; s2 += v * v; n++ } return { w: cv.width, h: cv.height, v: Math.round(s2 / n - (s / n) ** 2) } })
@@ -224,13 +274,13 @@ await t('結果の画像が描ける（1080x1350・絵が入っている）', as
 })
 await t('Xでポストの URL（本文・ハッシュタグ・公開URL）', async () => {
   const u = await p.evaluate(() => { let got = ''; const o = window.open; window.open = x => { got = x }; document.querySelector('#bPost').click(); window.open = o; return got })
-  expect(/^https:\/\/x\.com\/intent\/post\?text=/.test(u) && u.includes(encodeURIComponent('#マチアプ写真詐欺を見抜け')) && u.includes(encodeURIComponent('tom3games.com/play/matchapp-sagi/')), u)
+  expect(/^https:\/\/x\.com\/intent\/post\?text=/.test(u) && u.includes(encodeURIComponent('#マチアプ写真詐欺を見抜け')) && u.includes(encodeURIComponent('エンディング')) && u.includes(encodeURIComponent('tom3games.com/play/matchapp-sagi/')), u)
 })
 await t('英語に切り替え: 画面の文字が英語になる', async () => {
   await p.click('#bLang')
   const r = await p.evaluate(() => ({ h: document.querySelector('#eH').textContent, b: document.querySelector('#bAgain').textContent, ja: /[ぁ-ん]/.test(document.querySelector('#eSum').textContent) }))
   await p.click('#bLang')
-  expect(r.h === 'Debrief notebook' && r.b === 'Again' && !r.ja, JSON.stringify(r))
+  expect(r.h.startsWith('Debrief notebook') && r.b === 'Again' && !r.ja, JSON.stringify(r))
 })
 await t('音: 鳴らす操作は呼ばれている・実際には無音', async () => {
   const r = await p.evaluate(() => ({ calls: window.__soundCalls, mute: window.__muteOk() }))
@@ -249,27 +299,29 @@ for (const [w, h, name] of SIZES) {
   await q.evaluate(() => { MA.act.start(9); MA.dbg.pause() })
   await shot('swipe')
   await q.evaluate(() => { document.querySelector('#topCard [data-sheet]').click() }); await shot('sheet'); await q.evaluate(() => document.querySelector('#topCard [data-close]').click())
-  await q.evaluate(() => { __h.to(9, ['a', 'k', 'l', 'b']); MA.dbg.step(0) })
-  await q.evaluate(() => MA.dbg.step(25000))
+  await q.evaluate(() => { __h.to(9, ['a', 'c', 'k', 'b']); MA.dbg.step(25000) })
   await shot('chatlist')
-  await q.evaluate(() => { __h.wait('b'); MA.act.open(__h.ci('b')) })
+  await q.evaluate(() => { __h.wait('b'); MA.act.open(__h.ci('b')); [...document.querySelectorAll('#msgs .msg.her')].pop().click() })
   await shot('chat')
-  await q.evaluate(() => document.querySelector('#cAv').click()); await shot('prof'); await q.evaluate(() => document.querySelector('#profClose').click())
-  await q.evaluate(() => MA.act.back())
-  // 選択肢は良い返しの中で一番長い文を選ぶ（折り返しが多くても収まるか）
-  await q.evaluate(() => { for (let n = 0; n < 400 && MA.S.phase === 'chat'; n++) { const ready = MA.mine().filter(x => x.state === 'mine' || x.state === 'offer'); if (!ready.length) { MA.dbg.step(500); continue } const c = ready[0]; MA.dbg.step(3500); MA.act.open(c.i); if (MA.mine()[c.i].state === 'offer') { if (!window.__shotQ) { window.__shotQ = 1; return } MA.act.meet(true) } else { const ch = MA.S.chats[c.i], o = ch.g.chat[ch.r].o, b = MA.opts(); MA.act.chooseK(b.reduce((a, k) => (o[k].g > o[a].g || (o[k].g === o[a].g && o[k].t[0].length > o[a].t[0].length)) ? k : a, b[0])) } MA.act.back() } })
+  await q.evaluate(() => document.querySelector('#cAv').click()); await shot('prof'); await q.evaluate(() => { document.querySelector('#profClose').click(); MA.act.back() })
+  await q.evaluate(() => { __h.date('a'); MA.act.open(__h.ci('a')) })
   await shot('meetq')
-  await q.evaluate(() => { const c = MA.S.chats[MA.S.open]; MA.act.meet(true); MA.act.back(); for (let n = 0; n < 400 && MA.S.phase === 'chat'; n++) { const ready = MA.mine().filter(x => x.state === 'mine' || x.state === 'offer'); if (!ready.length) { MA.dbg.step(500); continue } const c = ready[0]; MA.dbg.step(3500); MA.act.open(c.i); if (MA.mine()[c.i].state === 'offer') MA.act.meet(true); else { const ch = MA.S.chats[c.i], o = ch.g.chat[ch.r].o, b = MA.opts(); MA.act.chooseK(b.reduce((a, k) => o[k].g > o[a].g ? k : a, b[0])) } MA.act.back() } MA.dbg.step(4000) })
+  await q.evaluate(() => { MA.act.meet(true); MA.act.back(); __h.date('c'); MA.act.open(__h.ci('c')); MA.act.meet(true) })
+  await shot('clash')
+  await q.evaluate(() => { MA.act.clash('other'); MA.dbg.step(4000); MA.act.back(); __h.date('k'); __h.meet('k', true); __h.date('b'); __h.meet('b', true); __h.finish(); MA.dbg.step(4000) })
   await shot('meet')
-  for (let k = 0; k < 16; k++) {
-    const st = await q.evaluate(() => { if (MA.S.phase !== 'meet') return 'done'; if (MA.d2opts().length) return 'd2'; return MA.S.met[MA.S.mi] })
+  for (let k = 0; k < 30; k++) {
+    const st = await q.evaluate(() => { if (MA.S.phase !== 'meet') return 'done'; if (MA.S.d2q) return 'q'; if (MA.d2opts().length) return 'd2'; return MA.S.met[MA.S.mi] })
     if (st === 'done') break
-    if (st === 'd2') { if (!views.date2) await shot('date2'); await q.evaluate(() => { const b = MA.d2opts(), g = MA.GIRLS.find(x => x.id === MA.S.met[MA.S.mi]); MA.act.date2K(b.reduce((a, k) => g.date2.o[k].t[0].length > g.date2.o[a].t[0].length ? k : a, b[0])); MA.dbg.step(500) }); if (!views.date2res) await shot('date2res'); await q.evaluate(() => MA.act.nextMeet()); await q.evaluate(() => MA.dbg.step(4000)); continue }
-    if (st === 'k' && !views['meet-bill']) await shot('meet-bill')
-    await q.evaluate(() => { MA.act.nextMeet(); MA.dbg.step(4000) })
+    if (st === 'q') { if (!views.d2q) await shot('d2q'); await q.evaluate(() => { MA.act.d2ask(true); MA.dbg.step(300) }); continue }
+    if (st === 'd2') { if (!views.date2) await shot('date2'); await q.evaluate(() => { const b = MA.d2opts(), g = MA.GIRLS.find(x => x.id === MA.S.met[MA.S.mi]); MA.act.date2K(b.reduce((a, k) => g.date2.o[k].t[0].length > g.date2.o[a].t[0].length ? k : a, b[0])); MA.dbg.step(500) }); if (!views.date2res) await shot('date2res'); await q.evaluate(() => { MA.act.nextMeet(); MA.dbg.step(4000) }); continue }
+    if (st === 'k' && !views['meet-bill']) { await q.evaluate(() => MA.dbg.step(3000)); await shot('meet-bill') }
+    await q.evaluate(() => { MA.dbg.step(3000); if (MA.S.d2q) return; MA.act.nextMeet(); MA.dbg.step(4000) })
   }
+  await shot('ending')
+  await q.evaluate(() => MA.act.toNote())
   await shot('end')
-  await q.evaluate(() => MA.act.openClue(MA.GIRLS.find(g => g.id === 'l'))); await shot('clue')
+  await q.evaluate(() => MA.act.openClue(MA.GIRLS.find(g => g.id === 'k'))); await shot('clue'); await q.evaluate(() => { document.querySelector('#clueClose').click(); document.querySelector('#bEnds').click() }); await shot('ends')
   for (const [v, r] of Object.entries(views)) await t(`一画面に収まる ${name} ${w}x${h} ${v}`, async () => { expect(!r.over.length && r.o.sw <= r.o.W && !r.o.bad.length, JSON.stringify(r)) })
   await t(`${name}: エラーなし`, async () => { expect(!q.errs.length, q.errs.join('|')) })
   await q.close()

@@ -34,9 +34,8 @@ body{width:1200px;height:630px;overflow:hidden;background:#1b1f24;font-family:"Z
 .ttl p{font:700 21px/1.6 "Zen Kaku Gothic New";color:#ddd5c6;margin-top:18px}
 </style></head><body>
 <div class="app"><img src="img/d1.webp"><span class="lk">いいね 842</span><div class="nm">りな<small>26歳 157cm</small></div><div class="row"><b>見送り</b><b>いいね</b></div></div>
-<div class="arrow">外</div>
 <div class="real"><img src="img/dm.webp"><span>待ち合わせに来た人</span></div>
-<div class="ttl"><span class="k">盛りを見抜く</span><h1>マチアプ<br>写真詐欺を<br>見抜け</h1><p>手首、背景のゆがみ、<br>上からの自撮り。<br>会ってからでは遅い。</p></div>
+<div class="ttl"><span class="k">盛りを見抜く</span><h1>マチアプ<br>写真詐欺を<br>見抜け</h1><p>手首、背景のゆがみ、<br>トークの一言。<br>本性を探れ。</p></div>
 </body></html>`)
 await p.waitForFunction(() => [...document.images].every(i => i.complete && i.naturalWidth)); await p.evaluate(() => document.fonts.ready); await p.waitForTimeout(400)
 await p.screenshot({ path: ROOT + '/og.png' })

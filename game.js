@@ -54,12 +54,14 @@ window.__jsUp = true
     for (let i = list.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [list[i], list[j]] = [list[j], list[i]] }
     // 当たりが最初の1枚目に来ないようにする（チュートリアルで手がかりを覚える前に引かせない）
     const perm = {}
-    for (const g of list) perm[g.id] = g.chat.map(() => { const a = [0, 1, 2]; for (let i = 2; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [a[i], a[j]] = [a[j], a[i]] } return a })
     const perm2 = {}; for (const g of list) if (g.date2) { const a = [0, 1, 2]; for (let i = 2; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [a[i], a[j]] = [a[j], a[i]] } perm2[g.id] = a }
-    S = { seed, rare, perm2, rngT: rngOf((seed || 1) * 7 + 3), d2: {}, order: list, idx: 0, likesLeft: LIKES, battT: 0, phase: 'swipe', pred: {}, dec: {}, liked: [], chats: [], ci: 0, mi: 0, met: [], loupeN: 0, perm, tut: false, photo: 0, sheet: false, done: false }
+    const shuf = n => { const a = [...Array(n).keys()]; for (let i = n - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [a[i], a[j]] = [a[j], a[i]] } return a }
+    const porder = {}, sorder = {}
+    for (const g of list) { const pi = shuf(PROBES.length).map(i => PROBES[i].id); porder[g.id] = ['hol', 'job'].filter(x => pi.includes(x)).concat(pi.filter(x => x !== 'hol' && x !== 'job')); if (rng() < .5) porder[g.id].splice(0, 2, porder[g.id][1], porder[g.id][0]); sorder[g.id] = shuf(SOCIAL.length) }
+    S = { seed, rare, perm2, porder, sorder, sends: [], yesAt: {}, resched: 0, clash: null, rngT: rngOf((seed || 1) * 7 + 3), d2: {}, order: list, idx: 0, likesLeft: LIKES, battT: 0, phase: 'swipe', pred: {}, dec: {}, liked: [], chats: [], ci: 0, mi: 0, met: [], loupeN: 0, perm, tut: false, photo: 0, sheet: false, done: false }
   }
   // ---- 画面切り替え
-  const VIEWS = ['vTitle', 'vSwipe', 'vMatch', 'vChat', 'vMeet', 'vEnd']
+  const VIEWS = ['vTitle', 'vSwipe', 'vMatch', 'vChat', 'vMeet', 'vEnding', 'vEnd']
   function show(v) { for (const id of VIEWS) $('#' + id).hidden = id !== v; S && (S.view = v) }
   // ---- 文言
   function texts() {
@@ -206,7 +208,7 @@ window.__jsUp = true
     if (S.phase !== 'swipe') return
     S.phase = 'match'; setLoupe(false); $('#tip').hidden = true
     for (const g of S.order) if (!S.dec[g.id]) S.dec[g.id] = 'none'
-    S.chats = S.liked.map(id => ({ g: GIRLS.find(x => x.id === id), good: 0, r: 0, ch: [], log: [], unread: 0, rushed: 0, state: 'wait', patLen: 0, left: false, offered: false, meet: null, timeouts: 0 }))
+    S.chats = S.liked.map(id => ({ g: GIRLS.find(x => x.id === id), turn: 0, aff: 0, run: 0, asked: [], heard: [], memo: [], log: [], unread: 0, rushed: 0, state: 'wait', patLen: 0, left: false, offered: false, meet: null, invBlock: 0, deep: 0 }))
     if (!S.chats.length) { finish(); return }
     show('vMatch'); const t = L()
     $('#mH').textContent = t.matched
@@ -219,83 +221,113 @@ window.__jsUp = true
     if (S.phase !== 'match') return; cancel(S.mT); S.phase = 'chat'; S.open = -1; show('vChat')
     const t = L(); $('#lH').textContent = t.chatH; $('#lSub').textContent = t.chatSub(S.chats.length)
     $('#room').classList.remove('on')
-    // 最初の1通は、子ごとの返信の速さで届く
-    S.chats.forEach(c => herSend(c, tx(c.g.chat[0].her), () => myTurn(c)))
+    S.chats.forEach(c => herSend(c, tx(TALK[c.g.id].open), () => myTurn(c)))
     renderList()
   }
-  // ================= トーク（同時進行） =================
-  // 状態: wait（相手の返事待ち）/ mine（こちらの番）/ offer（会うかの返事待ち）/ done
+  // ================= トーク（同時進行・探りを入れる） =================
+  // 状態: wait（相手の返事待ち）/ mine（こちらの番）/ offer（会うかの返事待ち）/ clash（日時がかぶった）/ sus（疑われた）/ done
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
   const spd = c => { const [a, b] = c.g.spd; return a + Math.floor(S.rngT() * (b - a)) }
   const idxOf = c => S.chats.indexOf(c)
-  function herSend(c, text, then, d) {
+  const byId = id => S.chats.find(c => c.g.id === id)
+  const atari = g => g.type === 'atari'
+  function herSend(c, text, then, d, clue) {
     c.state = 'wait'; c.typing = false
     const ms = d == null ? spd(c) : d
     const at = Math.max(G.t + ms, (S.lastDue || 0) + GAP); S.lastDue = at
     cancel(c.tyT); c.tyT = after(Math.max(0, at - G.t - 1500), () => { c.typing = true; refresh(c) })
     const arrive = () => {
       if (S.phase !== 'chat') return
-      // 一度に未読が増えすぎないよう、ほかの子の未読が多い間は少し待たせる
+      // 一度に未読が増えすぎないよう、ほかの子の未読が多い間は待たせる
       const unread = S.chats.reduce((a, x) => a + (x === c ? 0 : x.unread), 0)
-      if (S.open !== idxOf(c) && unread >= MAX_UNREAD) { c.dueT = after(3000, arrive); return }
+      // こちらが返した後の返事は止めない（1人とじっくり話している時に止まらないように）。止めるのは最初の1通だけ
+      if (S.open !== idxOf(c) && unread >= MAX_UNREAD && !c.log.some(m => m.who === 'me')) { c.dueT = after(3000, arrive); return }
       c.typing = false
-      push(c, 'her', text)
+      push(c, 'her', text, clue)
       then && then()
     }
     cancel(c.dueT); c.dueT = after(at - G.t, arrive)
   }
-  function push(c, who, text) {
-    c.log.push({ who, text }); if (c.log.length > 30) c.log.shift()
+  function push(c, who, text, clue) {
+    const m = { who, text, n: (S.msgN = (S.msgN || 0) + 1) }
+    if (clue) m.clue = 1
+    c.log.push(m); if (c.log.length > 40) c.log.shift()
+    if (who === 'her') { c.heard.push(m); c.arrivedAt = G.t; if (S.open !== idxOf(c)) { c.unread++; banner(c, text) } sfx('notif', { vol: 0.6 }) }
+    if (who === 'me') S.sends.push({ t: G.t, id: c.g.id })
     c.last = G.t
-    if (who === 'her') {
-      c.arrivedAt = G.t
-      if (S.open !== idxOf(c)) { c.unread++; banner(c, text) }
-      sfx('notif', { vol: 0.6 })
-    }
     refresh(c)
   }
   function myTurn(c) {
+    if (c.state === 'done') return
     c.state = 'mine'; c.myT0 = G.t; c.patLen = c.g.pat * 1000
     cancel(c.patT); c.patT = after(c.patLen, () => timeoutC(c))
     refresh(c)
   }
-  function choose(k) {
+  // こちらの3択: まだ聞いていない探り2つ＋ふつうの返し1つ（並びは種で決まる）
+  function optsFor(c) {
+    const ord = S.porder[c.g.id], left = ord.filter(id => !c.asked.includes(id))
+    const o = left.slice(0, 2).map(id => ({ k: 'p', id }))
+    const so = S.sorder[c.g.id]
+    let si = c.turn
+    while (o.length < 3) { o.push({ k: 's', id: SOCIAL[so[si % SOCIAL.length]].id }); si++ }
+    return (c.turn + S.seed) % 2 ? [o[2], o[0], o[1]] : [o[0], o[2], o[1]]
+  }
+  const optText = o => o.k === 'p' ? tx(PROBES.find(p => p.id === o.id).q) : tx(SOCIAL.find(s => s.id === o.id).t)
+  function choose(oi) {
+    const c = S.chats[S.open]
+    if (S.phase !== 'chat' || !c || c.state !== 'mine') return
+    const o = optsFor(c)[oi]; if (!o) return
+    cancel(c.patT); c.patLen = 0
+    const g = c.g, tk = TALK[g.id]
+    let pre = ''
+    if (g.tooFast && G.t - c.arrivedAt < g.tooFast) { c.rushed++; c.aff--; if (c.rushed === 1 && g.fastLine) pre = tx(g.fastLine) }
+    push(c, 'me', optText(o)); sfx('reply', { vol: 0.5 })
+    let reply, clue = 0, instant = false
+    if (o.k === 'p') {
+      const p = PROBES.find(x => x.id === o.id); c.asked.push(o.id); c.run++
+      const a = tk.ans[o.id]; reply = tx(a); clue = a[2] ? 1 : 0
+      if (!tk.eager && c.turn < p.min) { c.aff--; pre += lang === 'ja' ? 'え、いきなり？ ' : 'Whoa, already? ' }
+      else if (!tk.eager && c.run >= 4) { c.aff--; pre += lang === 'ja' ? '質問ばっかりだね笑 ' : 'So many questions, lol. ' }
+    } else {
+      const s = SOCIAL.find(x => x.id === o.id); c.run = 0; c.aff += s.g
+      reply = tx((s.g > 0 ? tk.nice : tk.meh)[c.turn % 2])
+      if (s.flatter && g.id === 'i') instant = true
+    }
+    c.turn++
+    herSend(c, pre + reply, () => afterReply(c, instant), null, clue)
+  }
+  function afterReply(c, instant) {
+    const g = c.g, tk = TALK[g.id]
+    if (instant || (!tk.cautious && tk.inviteAt && c.turn >= tk.inviteAt) || (tk.cautious && c.turn >= 8 && c.aff >= 2)) {
+      return herSend(c, tx(tk.ask), () => offer(c), 1800, tk.ask[2])
+    }
+    if (c.turn >= 12) { push(c, 'sys', L().fizzle); return done(c) }
+    myTurn(c)
+  }
+  function invite() {
     const c = S.chats[S.open]
     if (S.phase !== 'chat' || !c || c.state !== 'mine') return
     cancel(c.patT); c.patLen = 0
-    const g = c.g, o = g.chat[c.r].o[k]
-    let rushed = false
-    if (g.tooFast && G.t - c.arrivedAt < g.tooFast) { c.rushed++; rushed = true }
-    c.ch.push(k); if (o.g > 0) c.good++
-    push(c, 'me', tx(o.t)); sfx('reply', { vol: 0.5 })
-    const pre = rushed && c.rushed === 1 && g.fastLine ? tx(g.fastLine) : ''
-    herSend(c, pre + tx(o.r), () => {
-      if (o.flag === 'instant') { c.instant = true; return offer(c) }
-      c.r++
-      if (c.r >= g.chat.length) after(900, () => wrapUp(c))
-      else herSend(c, tx(g.chat[c.r].her), () => myTurn(c), 1800)
-    })
+    const tk = TALK[c.g.id]
+    push(c, 'me', tx(INVITE)); sfx('reply', { vol: 0.5 })
+    c.turn++
+    if (tk.cautious && (c.turn < 5 || c.aff < 1 || c.turn < c.invBlock)) {
+      c.aff--; c.invBlock = c.turn + 2
+      return herSend(c, tx(tk.early), () => (c.turn >= 12 ? (push(c, 'sys', L().fizzle), done(c)) : myTurn(c)))
+    }
+    herSend(c, tx(tk.yes), () => offer(c), null, tk.yes[2])
   }
   function timeoutC(c) {
     if (S.phase !== 'chat' || c.state !== 'mine') return
-    const g = c.g; c.patLen = 0; c.timeouts++; c.ch.push(-1)
+    const g = c.g; c.patLen = 0; c.timeouts = (c.timeouts || 0) + 1
     if (g.angry) {
       push(c, 'her', tx(g.timeout)); sfx('angry')
       after(900, () => { push(c, 'sys', L().left); c.left = true; done(c) })
       return
     }
-    push(c, 'her', L().timeoutQ)
-    c.r++
-    if (c.r >= g.chat.length) after(900, () => wrapUp(c))
-    else herSend(c, tx(g.chat[c.r].her), () => myTurn(c))
-  }
-  function wrapUp(c) {
-    const g = c.g
-    if (g.type === 'atari') {
-      const lastK = c.ch[2], ok = lastK >= 0 && g.chat[2].o[lastK].g > 0
-      if (!(ok && c.good - c.rushed >= 2)) { push(c, 'sys', L().declined); return done(c) }
-    }
-    offer(c)
+    push(c, 'her', L().timeoutQ); c.aff--; c.turn++
+    if (c.turn >= 12) { push(c, 'sys', L().fizzle); return done(c) }
+    herSend(c, tx(TALK[g.id].meh[1]), () => myTurn(c))
   }
   function offer(c) {
     const t = L()
@@ -306,16 +338,65 @@ window.__jsUp = true
     refresh(c)
   }
   function meetChoice(v) { const c = S.chats[S.open]; if (c) decideMeet(c, v) }
+  const slotOf = c => c.moved ? 'moved-' + c.g.id : c.g.slot
   function decideMeet(c, v) {
     if (S.phase !== 'chat' || c.state !== 'offer') return
-    cancel(c.patT); c.patLen = 0; c.decided = true; c.meet = v
+    cancel(c.patT); c.patLen = 0
+    if (v) {
+      // 日時がかぶったら、どちらかにリスケを頼むか、両方と会うか
+      const y = S.chats.find(x => x !== c && x.meet === true && !x.clash && slotOf(x) === slotOf(c))
+      if (y) { c.state = 'clash'; c.with = y; c.myT0 = G.t; c.patLen = MEET_WAIT; c.patT = after(MEET_WAIT, () => clashPick(c, 'both')); push(c, 'sys', L().clashQ(tx(y.g.name))); return }
+    }
+    c.decided = true; c.meet = v
     sfx('tap')
-    if (v) S.met.push(c.g.id)
+    if (v) { S.met.push(c.g.id); S.yesAt[c.g.id] = G.t }
     done(c)
   }
+  function clashPick(c, how) {
+    if (S.phase !== 'chat' || c.state !== 'clash') return
+    cancel(c.patT); c.patLen = 0
+    const y = c.with, t = L()
+    if (how === 'both') {
+      c.meet = true; c.decided = true; c.clash = y.g.id; y.clash = c.g.id; S.clash = [c.g.id, y.g.id]
+      S.met.push(c.g.id); S.yesAt[c.g.id] = G.t
+      return done(c)
+    }
+    const z = how === 'me' ? c : y
+    S.resched++
+    push(c, 'me', (z === c ? '' : t.toRs(tx(z.g.name))) + tx(RESCHED.ask))
+    if (z.g.sus) {
+      c.state = 'sus'; c.susOf = z
+      herSend(c, (z === c ? '' : tx(z.g.name) + ': ') + tx(RESCHED.sus[z.g.id]), () => { c.state = 'sus'; c.myT0 = G.t; c.patLen = z.g.pat * 1000; c.patT = after(c.patLen, () => susPick(c, 2)); refresh(c) }, 1800)
+      return
+    }
+    herSend(c, (z === c ? '' : tx(z.g.name) + ': ') + tx(RESCHED.ok), () => { z.moved = true; finishClash(c) }, 1800)
+  }
+  function susPick(c, k) {
+    if (S.phase !== 'chat' || c.state !== 'sus') return
+    cancel(c.patT); c.patLen = 0
+    const z = c.susOf, o = RESCHED.o[k]
+    push(c, 'me', tx(o.t))
+    let res = o.res
+    if (res === 'deep' && z.g.sus === 2) res = 'cut'
+    herSend(c, (z === c ? '' : tx(z.g.name) + ': ') + tx(res === 'cut' ? RESCHED.o[2].r : o.r), () => {
+      if (res === 'cut') {
+        z.left = true; z.cut = true
+        if (z.meet) { z.meet = false; S.met = S.met.filter(id => id !== z.g.id) }
+        if (z === c) { c.decided = true; c.meet = false; return done(c) }
+      } else { z.moved = true; if (res === 'deep') z.deep++ }
+      finishClash(c)
+    }, 1800)
+  }
+  function finishClash(c) { c.decided = true; c.meet = true; S.met.push(c.g.id); S.yesAt[c.g.id] = G.t; done(c) }
   function done(c) {
     c.state = 'done'; refresh(c)
     if (S.chats.every(x => x.state === 'done')) after(1500, () => { if (S.phase !== 'chat') return; if (S.met.length) startMeets(); else finish() })
+  }
+  // メモ: 相手の吹き出しを押すと残す
+  function toggleMemo(n) {
+    const c = S.chats[S.open]; if (!c) return
+    const m = c.log.find(x => x.n === n); if (!m || m.who !== 'her') return
+    m.memo = !m.memo; c.memo = c.log.filter(x => x.memo).map(x => x.text); sfx('tap'); renderRoom()
   }
   // ---- 描画
   function refresh(c) { renderList(); if (S.open === idxOf(c)) renderRoom() }
@@ -344,15 +425,24 @@ window.__jsUp = true
     const t = L(), g = c.g
     c.unread = 0
     const tot = S.chats.reduce((a, x) => a + x.unread, 0); $('#rBadge').textContent = tot || ''
-    $('#msgs').innerHTML = c.log.slice(-14).map(m => `<div class="msg ${m.who}">${esc(m.text)}</div>`).join('') + (c.typing ? '<div class="msg her typing"><i></i><i></i><i></i></div>' : '')
-    const op = $('#opts')
+    $('#msgs').innerHTML = c.log.slice(-14).map(m => `<div class="msg ${m.who}${m.memo ? ' memo' : ''}" data-n="${m.n}">${esc(m.text)}</div>`).join('') + (c.typing ? '<div class="msg her typing"><i></i><i></i><i></i></div>' : '')
+    $('#msgs').querySelectorAll('.msg.her[data-n]').forEach(e => e.onclick = () => toggleMemo(+e.dataset.n))
+    const op = $('#opts'), inv = $('#bInvite')
+    inv.hidden = !(c.state === 'mine' && c.turn >= 1)
     if (c.state === 'mine') {
-      op.innerHTML = S.perm[g.id][c.r].map(k => `<button data-k="${k}">${esc(tx(g.chat[c.r].o[k].t))}</button>`).join('')
-      op.querySelectorAll('button').forEach(b => b.onclick = () => choose(+b.dataset.k))
+      op.innerHTML = optsFor(c).map((o, i) => `<button data-o="${i}">${esc(optText(o))}</button>`).join('')
+      op.querySelectorAll('button').forEach(b => b.onclick = () => choose(+b.dataset.o))
     } else if (c.state === 'offer') {
       op.innerHTML = `<div class="sys" style="font:700 14px var(--sans);text-align:center;margin-top:4px">${esc(t.meetQ(tx(g.name)))}</div><div class="meet"><button class="no">${t.meetNo}</button><button class="yes">${t.meetYes}</button></div>`
       op.querySelector('.yes').onclick = () => meetChoice(true); op.querySelector('.no').onclick = () => meetChoice(false)
-    } else op.innerHTML = c.state === 'wait' ? `<div class="hint">${t.waitHint}</div>` : ''
+    } else if (c.state === 'clash') {
+      const y = c.with
+      op.innerHTML = [['other', t.rsTo(tx(y.g.name))], ['me', t.rsTo(tx(g.name))], ['both', t.both]].map(([k, s]) => `<button data-c="${k}">${esc(s)}</button>`).join('')
+      op.querySelectorAll('button').forEach(b => b.onclick = () => clashPick(c, b.dataset.c))
+    } else if (c.state === 'sus' && c.patLen) {
+      op.innerHTML = RESCHED.o.map((o, i) => `<button data-s="${i}">${esc(tx(o.t))}</button>`).join('')
+      op.querySelectorAll('button').forEach(b => b.onclick = () => susPick(c, +b.dataset.s))
+    } else op.innerHTML = c.state === 'wait' || c.state === 'sus' ? `<div class="hint">${t.waitHint}</div>` : ''
     bars()
   }
   function bars() {
@@ -371,24 +461,32 @@ window.__jsUp = true
     cancel(banT); banT = after(2200, () => b.classList.remove('on'))
   }
   function stopPat() {}
-  // トーク中にプロフを見返す（開いている間は時計を止める）
+  // トーク中にプロフとメモを見返す（開いている間は時計を止める）
   function openProf() {
     const c = S.chats[S.open]; if (!c) return
     const g = c.g, t = L(), l = t.lbl; S.profPh = 0; S.hold = true
     const draw = () => { $('#profImg').src = img(g.photos[S.profPh]); $('#profBars').innerHTML = g.photos.map((_, i) => `<i class="${i === S.profPh ? 'on' : ''}"></i>`).join('') }
     draw()
     $('#profImg').onclick = e => { const r = e.target.getBoundingClientRect(); S.profPh = (S.profPh + (e.clientX - r.left < r.width / 2 ? -1 : 1) + g.photos.length) % g.photos.length; draw() }
-    $('#profInfo').innerHTML = `<b>${esc(tx(g.name))} ${t.profAge(g.age, g.h)}</b>${esc(tx(g.job))} / ${esc(tx(g.area))} / ${l.body} ${esc(tx(g.body))} / ${l.likes} ${g.likes.toLocaleString()}<div>${esc(tx(g.intro))}</div>`
+    const memo = c.memo.length ? `<div class="pm"><b>${t.memo}</b>${c.memo.map(m => '<span>' + esc(m) + '</span>').join('')}</div>` : ''
+    $('#profInfo').innerHTML = `<b>${esc(tx(g.name))} ${t.profAge(g.age, g.h)}</b>${esc(tx(g.job))} / ${esc(tx(g.area))} / ${l.body} ${esc(tx(g.body))} / ${l.likes} ${g.likes.toLocaleString()}<div class="pt">${esc(tx(g.intro))}</div>${memo}`
     $('#profClose').textContent = t.close
     $('#prof').hidden = false; sfx('tap')
   }
   function closeProf() { $('#prof').hidden = true; S.hold = false; last = performance.now() }
   // ================= 待ち合わせ =================
-  function startMeets() { S.phase = 'meet'; S.mi = 0; show('vMeet'); bed('bgm', null); bed('amb', 'snd/amb_street.mp3', 0.35); meetScene() }
+  function startMeets() {
+    S.phase = 'meet'; S.mi = 0
+    // 修羅場の2人は1つの場面にまとめる
+    if (S.clash) { const [x, y] = S.clash; S.met = S.met.filter(id => id !== x); S.clashAt = y }
+    show('vMeet'); bed('bgm', null); bed('amb', 'snd/amb_street.mp3', 0.35); meetScene()
+  }
+  const meetT = () => { const t = L(); return $('#bMtNext') }
   function meetScene() {
     const g = GIRLS.find(x => x.id === S.met[S.mi]), t = L()
+    const clash = S.clash && S.clashAt === g.id, other = clash && GIRLS.find(x => x.id === S.clash[0])
     $('#mtWhen').textContent = t.meetHead; $('#mtWho').textContent = tx(g.place)
-    $('#mtProf').src = img(g.photos[0]); $('#mtProfL').textContent = t.photoWas
+    $('#mtProf').src = img(clash ? other.meet : g.photos[0]); $('#mtProfL').textContent = clash ? tx(other.name) : t.photoWas
     const r = $('#mtReal'); r.classList.remove('on'); r.src = img(g.meet); $('#mtRealL').textContent = t.realWas
     $('#mtBill').hidden = true; $('#mtVerdict').hidden = true; $('#mtText').textContent = ''; $('#mtOpts').hidden = true; $('#mtPat i').style.transform = 'scaleX(0)'
     const nb = $('#bMtNext'); nb.disabled = true; nb.style.opacity = .4; nb.hidden = false; nb.textContent = t.next
@@ -396,32 +494,44 @@ window.__jsUp = true
     after(900, () => { if (S.mi !== mine) return; r.classList.add('on') })
     after(2300, () => {
       if (S.mi !== mine) return
-      const good = g.type === 'atari', v = $('#mtVerdict')
-      v.hidden = false; v.className = good ? 'good' : 'bad'; v.textContent = tx(TYPES[g.type])
-      $('#mtText').textContent = tx(g.end)
-      sfx(good ? 'win' : 'lose')
-      if (g.bill) {
+      const v = $('#mtVerdict')
+      v.hidden = false; v.className = 'neutral'; v.textContent = clash ? t.clashTag : tx(g.tag)
+      $('#mtText').textContent = clash ? t.clashText(tx(other.name), tx(g.name)) : tx(g.end)
+      sfx(clash || !atari(g) ? 'lose' : 'win')
+      if (g.bill && !clash) {
         const b = $('#mtBill'); let tot = 0
         b.innerHTML = `<h4>${t.bill}</h4>` + g.bill.map(([n, y]) => { tot += y; return `<div><span>${esc(tx(n))}</span><span>¥${y.toLocaleString()}</span></div>` }).join('') + `<div class="tot"><span>${t.billTotal}</span><span>¥${tot.toLocaleString()}</span></div>`
         b.hidden = false; sfx('coin')
       }
-      nb.disabled = false; nb.style.opacity = 1
-      if (g.date2) nb.textContent = t.date2Go
-      S.mtT = after(14000, nextMeet)
+      if (clash) { nb.disabled = false; nb.style.opacity = 1; S.mtT = after(14000, nextMeet); return }
+      // 2回目も会うかは、どの子でも自分で決める
+      nb.hidden = true
+      const box = $('#mtOpts'); box.hidden = false
+      box.innerHTML = `<button data-d="1">${esc(t.d2yes)}</button><button data-d="0">${esc(t.d2no)}</button>`
+      box.querySelectorAll('button').forEach(b => b.onclick = () => d2Ask(+b.dataset.d === 1))
+      S.d2q = true; S.d2Start = G.t; S.d2wait = true
+      S.d2T = after(D2_WAIT, () => d2Ask(false))
     })
   }
-  function nextMeet() {
-    if (S.phase !== 'meet' || $('#bMtNext').disabled || S.d2wait) return
-    cancel(S.mtT)
+  function d2Ask(yes) {
+    if (S.phase !== 'meet' || !S.d2q) return
+    S.d2q = false; S.d2wait = false; cancel(S.d2T)
     const g = GIRLS.find(x => x.id === S.met[S.mi])
-    if (g.date2 && !(g.id in S.d2)) return date2Scene(g)
+    if (yes) return date2Scene(g)
+    S.d2[g.id] = { no: true }
+    $('#mtOpts').hidden = true
+    const nb = $('#bMtNext'); nb.hidden = false; nb.disabled = false; nb.style.opacity = 1
+    nextMeet()
+  }
+  function nextMeet() {
+    if (S.phase !== 'meet' || $('#bMtNext').disabled || S.d2wait || S.d2q) return
+    cancel(S.mtT)
     S.mi++; if (S.mi >= S.met.length) finish(); else meetScene()
   }
-  // 2回目のデート（当たりの子だけ）。3択で続くか切られるかが決まる
   function date2Scene(g) {
     const t = L(), d = g.date2
     $('#mtWhen').textContent = t.date2Head; $('#mtWho').textContent = tx(d.scene)
-    $('#mtVerdict').hidden = true; $('#mtText').textContent = ''
+    $('#mtVerdict').hidden = true; $('#mtText').textContent = ''; $('#mtBill').hidden = true
     const nb = $('#bMtNext'); nb.hidden = true
     const box = $('#mtOpts'); box.hidden = false
     box.innerHTML = S.perm2[g.id].map(k => `<button data-k="${k}">${esc(tx(d.o[k].t))}</button>`).join('')
@@ -430,63 +540,129 @@ window.__jsUp = true
     S.d2T = after(D2_WAIT, () => choose2(-1))
   }
   function choose2(k) {
-    if (S.phase !== 'meet' || !S.d2wait) return
+    if (S.phase !== 'meet' || !S.d2wait || S.d2q) return
     const g = GIRLS.find(x => x.id === S.met[S.mi]), d = g.date2, t = L()
     cancel(S.d2T); S.d2wait = false; $('#mtPat i').style.transform = 'scaleX(0)'
     const ok = k >= 0 && d.o[k].g > 0
     S.d2[g.id] = { k, ok }
     $('#mtOpts').hidden = true
     $('#mtText').textContent = (k >= 0 ? '「' + tx(d.o[k].r) + '」 ' : '') + tx(ok ? d.ok : d.ng)
-    const v = $('#mtVerdict'); v.hidden = false; v.className = ok ? 'good' : 'bad'; v.textContent = ok ? t.d2ok : t.d2ng
+    const v = $('#mtVerdict'); v.hidden = false; v.className = 'neutral'; v.textContent = t.date2Head
     sfx(ok ? 'win' : 'lose')
     const nb = $('#bMtNext'); nb.hidden = false; nb.textContent = t.next; nb.disabled = false; nb.style.opacity = 1
     S.mtT = after(14000, nextMeet)
   }
-  // ================= 採点と結果 =================
+  // ================= 点・エンディング・結果 =================
   function score(st) {
     st = st || S
-    let pts = 0, metGood = 0, metBad = 0, avoid = 0, d2ok = 0
-    // 結果に出すのは、いいねしてマッチした子だけ（見送った子の正体は出さない）
+    let pts = 0, metGood = 0, metBad = 0, avoid = 0, d2ok = 0, d2n = 0
     const rows = st.order.filter(g => st.liked.includes(g.id)).map(g => {
-      const hit = g.type === 'atari', dec = st.dec[g.id], c = st.chats.find(x => x.g.id === g.id)
-      let met = st.met.includes(g.id), res = ''
-      if (met) { if (hit) metGood++; else metBad++; res = 'met'; const d = st.d2 && st.d2[g.id]; if (d) { res = d.ok ? 'kept' : 'dumped'; if (d.ok) d2ok++ } }
-      else if (c && !hit && c.meet === false) { avoid++; res = 'avoid' }
+      const hit = atari(g), c = st.chats.find(x => x.g.id === g.id), d = st.d2 && st.d2[g.id]
+      let res = ''
+      const met = st.met.includes(g.id) || (st.clash && st.clash.includes(g.id))
+      if (st.clash && st.clash.includes(g.id)) { res = 'clash'; pts -= 15 }
+      else if (met) {
+        if (hit) { metGood++; pts += 40 } else { metBad++; pts -= 20 }
+        res = 'met'
+        if (d && !d.no) { d2n++; res = 'd2'; if (d.ok && (hit || g.type === 'sagi')) { d2ok++; pts += 30 } else if (!hit) pts -= 10 }
+      } else if (c && !hit && c.meet === false) { avoid++; pts += 15; res = 'avoid' }
       else if (c && c.left) res = 'left'
       else if (c) res = 'nomeet'
-      return { g, hit, dec, res }
+      return { g, hit, res, c }
     })
-    pts = metGood * 40 + d2ok * 30 - metBad * 20 + avoid * 15
+    // 結末の重み（誠実なら上がり、二股や重たい子の放置は下がる）
+    const en = st.phase === 'swipe' ? null : ending(st).id
+    pts += ({ best: 60, honest: 40, futamata: -40, stalk: -30, exposed: -20 })[en] || 0
     const rank = pts <= 0 ? 0 : pts < 40 ? 1 : pts < 80 ? 2 : pts < 140 ? 3 : 4
-    return { pts, metGood, metBad, avoid, d2ok, rank, rows }
+    return { pts, metGood, metBad, avoid, d2ok, d2n, rank, rows, met: metGood + metBad, end: en }
   }
+  // エンディング（上から順に見て最初に合った1つ）
+  function ending(st) {
+    st = st || S
+    const met = id => st.met.includes(id), d2 = id => st.d2[id] && !st.d2[id].no, d2ok = id => d2(id) && st.d2[id].ok
+    const sendsAfter = id => st.sends.filter(s => s.id !== id && s.t > st.yesAt[id]).length
+    const metIds = st.met.slice()
+    const nm = id => tx(GIRLS.find(g => g.id === id).name)
+    const heavy = ['e', 'f'].find(id => met(id) && (sendsAfter(id) >= 1 || metIds.length > 1 || d2(id) || (byIdS(st, id) || {}).deep))
+    const at = metIds.find(id => atari(GIRLS.find(g => g.id === id)) && d2ok(id))
+    let e, v = {}
+    if (st.clash) { e = 'clash'; v = { a: nm(st.clash[1]), o: nm(st.clash[0]) } }
+    else if (heavy) { e = 'stalk'; v = { h: nm(heavy) } }
+    else if (st.resched >= 2 || (st.resched >= 1 && metIds.length >= 3)) e = 'exposed'
+    else if (at && (metIds.length > 1 || sendsAfter(at) >= 2)) { e = 'futamata'; v = { a: nm(at), o: nm(metIds.find(id => id !== at) || st.sends.filter(s => s.id !== at && s.t > st.yesAt[at]).map(s => s.id)[0]) } }
+    else if (at) { e = 'best'; v = { a: nm(at) } }
+    else if (met('d') && d2ok('d')) { e = 'honest'; v = { d: nm('d') } }
+    else if (met('j')) e = 'seminar'
+    else if (met('k')) e = 'regular'
+    else if (st.chats.some(c => c.g.id === 'h' && c.left)) e = 'silent'
+    else if (!metIds.length) e = 'sleep'
+    else e = 'again'
+    return { id: e, v }
+  }
+  const byIdS = (st, id) => st.chats.find(c => c.g.id === id)
+  function fill(s, v) { return s.replace(/\{(\w)\}/g, (_, k) => v[k] || '') }
+  let seenEnds = []
+  try { seenEnds = JSON.parse(localStorage.getItem('ms_ends') || '[]') } catch (e) {}
   function finish() {
     S.phase = 'end'; S.done = true; stopPat()
-    show('vEnd'); renderEnd()
+    const en = ending(); S.ending = en.id
+    if (!seenEnds.includes(en.id)) { seenEnds.push(en.id); try { localStorage.setItem('ms_ends', JSON.stringify(seenEnds)) } catch (e) {} }
+    showEnding(en)
     bed('amb', null); bed('bgm', 'snd/bgm.mp3', 0.25); sfx('rank')
     const r = score(); window.TM && TM.end(r.pts, r.rank >= 3)
   }
+  function endPic(en) {
+    const st = S, v = en.id, gi = id => GIRLS.find(g => g.id === id)
+    const im = k => `<img src="${img(k)}" alt="">`
+    if (v === 'clash') return { h: im(gi(st.clash[1]).meet) + im(gi(st.clash[0]).meet) }
+    if (v === 'stalk') { const h = ['e', 'f'].find(id => st.met.includes(id)); return { h: im(gi(h).meet) + `<span class="ov n1">${lang === 'ja' ? '未読 127' : '127 unread'}</span><span class="ov n2">${lang === 'ja' ? '着信 14' : '14 calls'}</span><span class="ov n3">${lang === 'ja' ? '今どこ？' : 'Where are you?'}</span>` } }
+    if (v === 'exposed') { const ids = st.met.slice(0, 2); return { h: ids.map(id => im(gi(id).photos[0])).join('') + `<span class="ov n1">${lang === 'ja' ? '予定いっぱいなんだね' : 'Busy, huh'}</span>`, cls: 'gray' } }
+    if (v === 'futamata' || v === 'best') { const at = st.met.find(id => atari(gi(id))); return { h: im(gi(at).meet) + (v === 'futamata' ? `<span class="ov n1">${lang === 'ja' ? 'ブロックされました' : 'Blocked'}</span>` : '') , cls: v === 'futamata' ? 'gray' : '' } }
+    if (v === 'honest') return { h: im('d2') + im('dm') }
+    if (v === 'seminar') return { h: im('jm') }
+    if (v === 'regular') return { h: im('km') + `<div class="scard"><b>${lang === 'ja' ? 'スタンプカード' : 'Stamp card'}</b>${'<i></i>'.repeat(10)}</div>` }
+    if (v === 'silent') return { h: im('h1') + `<span class="ov n1 dim">${lang === 'ja' ? '通知 0' : '0 notifications'}</span>`, cls: 'gray' }
+    if (v === 'sleep') return { h: `<div class="moon"><span>${lang === 'ja' ? 'このアプリを削除しました' : 'App deleted'}</span></div>` }
+    return { h: st.met.slice(0, 2).map(id => im(gi(id).photos[0])).join(''), cls: 'gray' }
+  }
+  function showEnding(en) {
+    const t = L(), E = ENDS.find(x => x.id === en.id), p = endPic(en)
+    show('vEnding')
+    $('#enKick').textContent = t.endHead; $('#enTitle').textContent = tx(E.title); $('#enText').textContent = fill(tx(E.text), en.v)
+    const pic = $('#enPic'); pic.className = 'enPic ' + (p.cls || ''); pic.innerHTML = p.h
+    $('#bToNote').textContent = t.toNote
+  }
+  function toNote() { show('vEnd'); renderEnd() }
   function tipLine(r) {
     const pick = r.rows.find(x => x.res === 'met' && !x.hit) || r.rows.find(x => x.res === 'avoid') || r.rows.find(x => !x.hit) || r.rows[0]
     return pick ? `${tx(pick.g.name)}: ${tx(pick.g.clues[0])}` : ''
   }
   function renderEnd() {
-    const t = L(), r = score()
-    $('#eH').textContent = t.rTitle
+    const t = L(), r = score(), E = ENDS.find(x => x.id === S.ending)
+    $('#eH').textContent = t.rTitle + (E ? ' / ' + tx(E.title) : '')
     $('#eScore').innerHTML = `${r.pts}<small>${t.rScore}</small>`
     $('#eRank').textContent = t.ranks[r.rank]
-    $('#eSum').innerHTML = `<span>${t.rMet} ${r.metGood}</span><span>${t.rAvoid} ${r.avoid}</span><span>${t.rBad} ${r.metBad}</span><span>${t.rD2} ${r.d2ok}</span>`
-    const resL = { kept: t.d2ok, dumped: t.d2ng, met: lang === 'ja' ? '会った' : 'met', avoid: lang === 'ja' ? '断った' : 'skip', left: lang === 'ja' ? '解除された' : 'unmatched', nomeet: lang === 'ja' ? '会わず' : 'no date' }
-    $('#eList').innerHTML = r.rows.map((x, i) => `<button class="eRow" data-i="${i}"><img src="${img(x.g.photos[0])}" alt=""><span class="nm">${tx(x.g.name)}</span><span class="ty ${x.hit ? 'good' : 'bad'}">${tx(TYPES[x.g.type])}</span><span class="mt">${resL[x.res] || ''}</span></button>`).join('') || `<p class="eNone">${t.noMatch}</p>`
+    $('#bEnds').textContent = t.endList(seenEnds.length, ENDS.length)
+    $('#eSum').innerHTML = `<span>${t.rMet} ${r.met}</span><span>${t.rD2} ${r.d2n}</span><span>${t.rAvoid} ${r.avoid}</span>`
+    const resL = { d2: lang === 'ja' ? '2回目' : '2nd date', met: lang === 'ja' ? '会った' : 'met', avoid: lang === 'ja' ? '断った' : 'declined', left: lang === 'ja' ? '解除された' : 'unmatched', nomeet: lang === 'ja' ? '会わず' : 'no date', clash: t.clashTag }
+    $('#eList').innerHTML = r.rows.map((x, i) => `<button class="eRow" data-i="${i}"><img src="${img(x.g.photos[0])}" alt=""><span class="nm">${tx(x.g.name)}</span><span class="ty">${tx(x.g.tag)}</span><span class="mt">${resL[x.res] || ''}</span></button>`).join('') || `<p class="eNone">${t.noMatch}</p>`
     $('#eList').querySelectorAll('.eRow').forEach(b => b.onclick = () => openClue(r.rows[+b.dataset.i].g))
     $('#eTip').textContent = tipLine(r)
   }
   function openClue(g) {
-    const t = L()
+    const t = L(), c = S.chats.find(x => x.g.id === g.id)
     $('#cluePics').innerHTML = [g.photos[g.type === 'sagi' ? 1 : 0], g.meet].map(k => `<img src="${img(k)}" alt="">`).join('')
-    $('#clueH').innerHTML = `${esc(tx(g.name))}<small>${esc(tx(TYPES[g.type]))}</small>`
-    $('#clueList').innerHTML = g.clues.map(c => '<li>' + esc(tx(c)) + '</li>').join('')
+    $('#clueH').innerHTML = `${esc(tx(g.name))}<small>${esc(tx(g.tag))}</small>`
+    const heard = c ? c.heard.filter(m => m.clue) : []
+    $('#clueList').innerHTML = g.clues.slice(0, 2).map(x => '<li>' + esc(tx(x)) + '</li>').join('') + (heard.length ? `<li class="hd">${t.heard}</li>` + heard.slice(0, 3).map(m => '<li class="q">「' + esc(m.text) + '」' + (m.memo ? t.memoed : '') + '</li>').join('') : '')
     $('#clue').hidden = false; S.clueOpen = g.id
+  }
+  function openEnds() {
+    const t = L()
+    $('#endsH').textContent = t.endList(seenEnds.length, ENDS.length)
+    $('#endsList').innerHTML = ENDS.map(E => seenEnds.includes(E.id) ? `<div><b>${esc(tx(E.title))}</b></div>` : `<div class="no"><b>？？？</b>${esc(tx(E.hint))}</div>`).join('')
+    $('#endsClose').textContent = t.close
+    $('#ends').hidden = false
   }
   // 結果の画像（1080x1350）
   function drawCover(ctx, im, x, y, w, h, py = 0.25) {
@@ -496,33 +672,28 @@ window.__jsUp = true
   }
   async function makeCard() {
     const r = score(), t = L(), cv = $('#card'), ctx = cv.getContext('2d'), W = 1080, H = 1350
-    const pair = r.rows.find(x => x.res === 'met' && !x.hit) || r.rows.find(x => ['met', 'kept', 'dumped'].includes(x.res))
+    const E = ENDS.find(x => x.id === (S.ending || 'sleep'))
+    const pair = r.rows.find(x => x.res === 'met' && !x.hit) || r.rows.find(x => ['met', 'd2', 'clash'].includes(x.res))
     if (pair) await preload([pair.g.photos[0], pair.g.meet])
     await (document.fonts ? document.fonts.ready : Promise.resolve())
     ctx.fillStyle = '#fbf8f0'; ctx.fillRect(0, 0, W, H)
     ctx.strokeStyle = '#d9e2ec'; ctx.lineWidth = 2; for (let y = 70; y < H; y += 56) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke() }
     ctx.strokeStyle = '#e8a7a2'; ctx.beginPath(); ctx.moveTo(70, 0); ctx.lineTo(70, H); ctx.stroke()
-    ctx.fillStyle = '#1d2228'; ctx.font = '900 54px "Zen Kaku Gothic New",sans-serif'; ctx.fillText(t.title, 100, 110)
-    ctx.font = '900 120px "Zen Kaku Gothic New",sans-serif'; ctx.fillText(String(r.pts), 100, 250)
-    const sw = ctx.measureText(String(r.pts)).width; ctx.font = '700 44px "Zen Kaku Gothic New",sans-serif'; ctx.fillText(t.rScore, 110 + sw, 250)
-    // ハンコ
-    ctx.save(); ctx.translate(880, 200); ctx.rotate(-0.2); ctx.strokeStyle = '#c4302b'; ctx.lineWidth = 8; ctx.beginPath(); ctx.arc(0, 0, 120, 0, Math.PI * 2); ctx.stroke()
-    ctx.fillStyle = '#c4302b'; ctx.font = '400 44px "Yuji Syuku",serif'; ctx.textAlign = 'center'
-    const rk = t.ranks[r.rank]; const half = lang === 'ja' && rk.length > 5 ? [rk.slice(0, Math.ceil(rk.length / 2)), rk.slice(Math.ceil(rk.length / 2))] : [rk]
-    if (lang !== 'ja') ctx.font = '400 30px "Yuji Syuku",serif'
-    half.forEach((s, i) => ctx.fillText(s, 0, 14 + (i - (half.length - 1) / 2) * 52)); ctx.restore(); ctx.textAlign = 'left'
-    // 写真と来た人
-    const py = 330, ph = 560, pw = 400
+    ctx.fillStyle = '#1d2228'; ctx.font = '900 46px "Zen Kaku Gothic New",sans-serif'; ctx.fillText(t.title, 100, 100)
+    ctx.fillStyle = '#c4302b'; ctx.font = '400 64px "Yuji Syuku",serif'; ctx.fillText(tx(E.title), 100, 190)
+    ctx.fillStyle = '#1d2228'; ctx.font = '900 80px "Zen Kaku Gothic New",sans-serif'; ctx.fillText(String(r.pts), 100, 290)
+    const sw = ctx.measureText(String(r.pts)).width; ctx.font = '700 36px "Zen Kaku Gothic New",sans-serif'; ctx.fillText(t.rScore + '  ' + t.ranks[r.rank], 116 + sw, 290)
+    const py = 340, ph = 560, pw = 400
     if (pair) {
-    ctx.save(); ctx.translate(120, py); ctx.rotate(-0.05); ctx.fillStyle = '#fff'; ctx.shadowColor = 'rgba(0,0,0,.25)'; ctx.shadowBlur = 20; ctx.fillRect(-14, -14, pw + 28, ph + 80); ctx.shadowBlur = 0
-    drawCover(ctx, cache[pair.g.photos[0]], 0, 0, pw, ph); ctx.fillStyle = '#1d2228'; ctx.font = '600 34px "Klee One",sans-serif'; ctx.fillText(t.photoWas, 10, ph + 50); ctx.restore()
-    ctx.save(); ctx.translate(570, py + 10); ctx.rotate(0.04); ctx.fillStyle = '#fff'; ctx.shadowColor = 'rgba(0,0,0,.25)'; ctx.shadowBlur = 20; ctx.fillRect(-14, -14, pw + 28, ph + 80); ctx.shadowBlur = 0
-    drawCover(ctx, cache[pair.g.meet], 0, 0, pw, ph); ctx.fillStyle = '#1d2228'; ctx.font = '600 34px "Klee One",sans-serif'; ctx.fillText(t.realWas, 10, ph + 50); ctx.restore()
-    ctx.fillStyle = '#8a3a2a'; ctx.font = '600 38px "Klee One",sans-serif'
-    wrapText(ctx, `${tx(pair.g.name)}: ${tx(pair.g.clues[0])}`, 100, 1050, 900, 50)
-    } else { ctx.fillStyle = '#6b7078'; ctx.font = '600 44px "Klee One",sans-serif'; ctx.fillText(r.rows.length ? (lang === 'ja' ? '誰とも会わなかった' : 'No dates this time') : t.noMatch, 100, 620) }
+      ctx.save(); ctx.translate(120, py); ctx.rotate(-0.05); ctx.fillStyle = '#fff'; ctx.shadowColor = 'rgba(0,0,0,.25)'; ctx.shadowBlur = 20; ctx.fillRect(-14, -14, pw + 28, ph + 80); ctx.shadowBlur = 0
+      drawCover(ctx, cache[pair.g.photos[0]], 0, 0, pw, ph); ctx.fillStyle = '#1d2228'; ctx.font = '600 34px "Klee One",sans-serif'; ctx.fillText(t.photoWas, 10, ph + 50); ctx.restore()
+      ctx.save(); ctx.translate(570, py + 10); ctx.rotate(0.04); ctx.fillStyle = '#fff'; ctx.shadowColor = 'rgba(0,0,0,.25)'; ctx.shadowBlur = 20; ctx.fillRect(-14, -14, pw + 28, ph + 80); ctx.shadowBlur = 0
+      drawCover(ctx, cache[pair.g.meet], 0, 0, pw, ph); ctx.fillStyle = '#1d2228'; ctx.font = '600 34px "Klee One",sans-serif'; ctx.fillText(t.realWas, 10, ph + 50); ctx.restore()
+      ctx.fillStyle = '#8a3a2a'; ctx.font = '600 38px "Klee One",sans-serif'
+      wrapText(ctx, `${tx(pair.g.name)}: ${tx(pair.g.clues[0])}`, 100, 1060, 900, 50)
+    } else { ctx.fillStyle = '#6b7078'; ctx.font = '600 40px "Klee One",sans-serif'; wrapText(ctx, fill(tx(E.text), {}), 100, 520, 880, 60) }
     ctx.fillStyle = '#1d2228'; ctx.font = '600 34px "Klee One",sans-serif'
-    ctx.fillText(`${t.rMet} ${r.metGood}   ${t.rAvoid} ${r.avoid}   ${t.rD2} ${r.d2ok}`, 100, 1190)
+    ctx.fillText(`${t.rMet} ${r.met}   ${t.rD2} ${r.d2n}   ${t.rAvoid} ${r.avoid}`, 100, 1200)
     ctx.fillStyle = '#6b7078'; ctx.font = '500 30px "Zen Kaku Gothic New",sans-serif'; ctx.fillText('tom3games.com/play/matchapp-sagi/', 100, 1290)
     return cv
   }
@@ -532,8 +703,8 @@ window.__jsUp = true
     cv.toBlob(b => { if (!b) return; const u = URL.createObjectURL(b), a = document.createElement('a'); a.href = u; a.download = 'matchapp-sagi.png'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 4000) }, 'image/png')
   }
   function postX() {
-    const r = score(), t = L(); window.TM && TM.share('x')
-    const u = 'https://x.com/intent/post?text=' + encodeURIComponent(t.postText(r.pts, t.ranks[r.rank]) + '\n' + t.tags) + '&url=' + encodeURIComponent('https://tom3games.com/play/matchapp-sagi/')
+    const r = score(), t = L(), E = ENDS.find(x => x.id === (S.ending || 'sleep')); window.TM && TM.share('x')
+    const u = 'https://x.com/intent/post?text=' + encodeURIComponent(t.postText(r.pts, t.ranks[r.rank], tx(E.title)) + '\n' + t.tags) + '&url=' + encodeURIComponent('https://tom3games.com/play/matchapp-sagi/')
     window.open(u, '_blank', 'noopener')
   }
   // ================= 描画の毎コマ =================
@@ -558,6 +729,8 @@ window.__jsUp = true
     $('#bLike').onclick = () => decide('like'); $('#bPass').onclick = () => decide('pass')
     $('#bToChat').onclick = toChat
     $('#bMtNext').onclick = nextMeet
+    $('#bToNote').onclick = toNote; $('#bEnds').onclick = openEnds; $('#endsClose').onclick = () => { $('#ends').hidden = true }
+    $('#bInvite').onclick = invite
     $('#bSave').onclick = saveCard; $('#bPost').onclick = postX
     $('#bAgain').onclick = () => { sfx('tap'); startGame() }
     $('#bTitle').onclick = () => { S.phase = 'title'; show('vTitle'); bed('bgm', null) }
@@ -588,10 +761,10 @@ window.__jsUp = true
   }
   // ---- 検証用の窓口
   window.MA = {
-    get S() { return S }, G, GIRLS, score: () => score(), lang: () => lang,
-    dbg: { pause(v = true) { G.paused = v; last = performance.now() }, step(ms) { const n = Math.ceil(ms / 50); for (let i = 0; i < n; i++) advance(Math.min(50, ms - i * 50)) }, speed(x) { G.speed = x } },
-    act: { start: s => startGame(s), like: () => decide('like'), pass: () => decide('pass'), loupe: setLoupe, photo: setPhoto, choose: i => { const c = S.chats[S.open]; choose(S.perm[c.g.id][c.r][i]) }, chooseK: choose, open: openRoom, back: closeRoom, prof: openProf, profClose: closeProf, meet: meetChoice, toChat, nextMeet, date2: i => { const g = GIRLS.find(x => x.id === S.met[S.mi]); choose2(S.perm2[g.id][i]) }, date2K: choose2, openClue, makeCard, endSwipe },
-    view: () => S && S.view, opts: () => [...document.querySelectorAll('#opts button[data-k]')].map(b => +b.dataset.k), mine: () => (S ? S.chats.map((c, i) => ({ i, id: c.g.id, state: c.state, since: G.t - (c.arrivedAt || 0), left: c.patLen ? c.patLen - (G.t - c.myT0) : null })) : []), d2opts: () => (S && S.d2wait ? [...document.querySelectorAll('#mtOpts button[data-k]')].map(b => +b.dataset.k) : []),
+    get S() { return S }, G, GIRLS, SOCIAL, PROBES, TALK, score: () => score(), lang: () => lang,
+    dbg: { pause(v = true) { G.paused = v; last = performance.now() }, step(ms) { const n = Math.ceil(ms / 50); for (let i = 0; i < n; i++) advance(Math.min(50, ms - i * 50)) }, speed(x) { G.speed = x }, fizzleAll() { for (const c of S.chats) if (c.state !== 'done') { cancel(c.patT); cancel(c.dueT); cancel(c.tyT); c.patLen = 0; push(c, 'sys', L().fizzle); done(c) } } },
+    act: { start: s => startGame(s), like: () => decide('like'), pass: () => decide('pass'), loupe: setLoupe, photo: setPhoto, choose, invite, clash: k => clashPick(S.chats[S.open], k), sus: k => susPick(S.chats[S.open], k), memo: toggleMemo, d2ask: d2Ask, toNote, ending: () => ending(), seen: () => seenEnds.slice(), open: openRoom, back: closeRoom, prof: openProf, profClose: closeProf, meet: meetChoice, toChat, nextMeet, date2: i => { const g = GIRLS.find(x => x.id === S.met[S.mi]); choose2(S.perm2[g.id][i]) }, date2K: choose2, openClue, makeCard, endSwipe },
+    view: () => S && S.view, opts: () => (S && S.open >= 0 && S.chats[S.open].state === 'mine' ? optsFor(S.chats[S.open]) : []), mine: () => (S ? S.chats.map((c, i) => ({ i, id: c.g.id, state: c.state, since: G.t - (c.arrivedAt || 0), left: c.patLen ? c.patLen - (G.t - c.myT0) : null })) : []), d2opts: () => (S && S.d2wait ? [...document.querySelectorAll('#mtOpts button[data-k]')].map(b => +b.dataset.k) : []),
   }
   boot()
 })()

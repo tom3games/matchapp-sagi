@@ -6,10 +6,10 @@
 <link rel="canonical" href="https://tom3games.com/play/matchapp-sagi/">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>マチアプ写真詐欺を見抜け（マッチングアプリのゲーム）</title>
-<meta name="description" content="マッチングアプリの女の子11人。盛った写真とプロフから、当たりか外れかを見抜く。手首、背景のゆがみ、上からの自撮り、全身の写真。トークは3択、待たせるとキレる子もいる。会ってみたら写真と別人、5年前の写真、業者、お店の営業。当たりの子とは2回目のデートも。見る目を試すゲーム。">
+<meta name="description" content="マッチングアプリの女の子11人。盛った写真とプロフ、トークの一言から本性を探る。手首、背景のゆがみ、上からの自撮り、写真の日付。同時進行のトーク、リスケ、2回目のデート。会ってみたら写真と別人、5年前の写真、業者、お店の営業。行動しだいで結末が変わる。">
 <meta property="og:type" content="website">
 <meta property="og:title" content="マチアプ写真詐欺を見抜け">
-<meta property="og:description" content="盛ったプロフ写真から、当たりの子を見抜く。手首・背景のゆがみ・上からの自撮り。会ってみたら別人、業者、お店の営業。">
+<meta property="og:description" content="盛ったプロフ写真とトークの一言から、本性を探る。手首・背景のゆがみ・写真の日付。行動しだいで結末が変わる。">
 <meta property="og:image" content="https://tom3games.com/play/matchapp-sagi/og.png">
 <meta property="og:url" content="https://tom3games.com/play/matchapp-sagi/">
 <meta name="twitter:card" content="summary_large_image">
@@ -189,6 +189,20 @@ img{-webkit-user-drag:none;user-select:none}
 #pat i{display:block;height:100%;background:var(--like);transform-origin:0 50%}
 #pat.hot i{background:var(--red)}
 #opts{flex:none;padding:8px 10px calc(10px + var(--bot));display:flex;flex-direction:column;gap:6px;background:var(--card);min-height:calc(160px + var(--bot))}
+#bInvite{flex:none;align-self:flex-end;margin:0 10px 6px;min-height:36px;padding:0 14px;border-radius:18px;background:var(--card);border:1.5px solid var(--like);color:var(--like);font:700 13px var(--sans)}
+.msg.her{cursor:pointer}
+.msg.memo{box-shadow:0 0 0 2px #e0b23a}
+.msg.memo::after{content:"メモ";position:absolute;right:-6px;top:-8px;font:700 9px var(--sans);background:#e0b23a;color:#1d2228;padding:1px 4px;border-radius:6px}
+html[lang=en] .msg.memo::after{content:"note"}
+#prof .pt{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+#prof .pm{margin-top:4px;padding:5px 8px;background:#fff6dc;border-radius:6px;font:600 12px/1.45 var(--hand);max-height:5.6em;overflow:hidden}
+#prof .pm b{font:700 11px var(--sans);display:block}
+#prof .pm span{display:block}
+#clue li.hd{margin-top:4px;font:700 12px var(--sans);color:var(--sub);padding-left:0;text-indent:0}
+#clue li.hd::before{content:""}
+#clue li.q{color:#8a3a2a}
+#mtVerdict.neutral{color:#f3e9c8;border-color:#f3e9c8}
+#mtOpts button[data-d]{text-align:center;font:700 16px var(--sans)}
 #opts .hint{margin:auto;font:500 13px var(--sans);color:var(--sub)}
 #opts button{text-align:left;min-height:46px;padding:7px 14px;border-radius:12px;border:1.5px solid var(--line);font:500 14px/1.35 var(--sans);background:#fff}
 #opts button:active{background:#eef4f1}
@@ -232,7 +246,7 @@ img{-webkit-user-drag:none;user-select:none}
 #eScore{font:900 40px/1 var(--sans);margin-top:2px}
 #eScore small{font-size:16px;margin-left:4px}
 #eRank{position:absolute;right:16px;top:calc(46px + env(safe-area-inset-top));width:92px;height:92px;border-radius:50%;border:3px solid var(--red);color:var(--red);display:flex;align-items:center;justify-content:center;text-align:center;font:400 17px/1.15 var(--brush);transform:rotate(-12deg);padding:8px;animation:stampIn .3s ease-out .4s both}
-.eSum{flex:none;padding:2px 112px 4px 42px;font:600 13px/1.55 var(--hand);display:grid;grid-template-columns:1fr;min-height:84px}
+.eSum{flex:none;padding:0 112px 4px 42px;font:600 13px/1.55 var(--hand);display:grid;grid-template-columns:1fr;min-height:84px}
 #eList{flex:1;min-height:0;display:flex;flex-direction:column;padding:2px 10px 0 38px;overflow:hidden}
 .eRow{flex:1;max-height:40px;min-height:0;display:flex;align-items:center;gap:8px;text-align:left;border-bottom:1px dotted #cfc8b8;font:600 14px var(--hand)}
 .eRow img{height:calc(100% - 6px);max-height:32px;aspect-ratio:1;border-radius:50%;object-fit:cover;object-position:50% 25%;flex:none}
@@ -275,6 +289,33 @@ img{-webkit-user-drag:none;user-select:none}
 #prof .pi .tags{flex-wrap:wrap;margin-top:4px}
 #prof button{flex:none;min-height:46px;font:700 15px var(--sans);color:var(--like);border-top:1px solid var(--line)}
 .chead img,.chead #cName{cursor:pointer}
+#vEnding .phone{background:#1b1f24;color:#fff}
+.enHead{flex:none;padding:calc(12px + env(safe-area-inset-top)) 96px 6px 18px}
+#enKick{display:inline-block;font:700 12px var(--sans);color:#1b1f24;background:#e9e2d4;padding:2px 8px;border-radius:2px}
+#enTitle{font:400 clamp(28px,8.5vw,38px)/1.15 var(--brush);margin-top:6px}
+.enPic{position:relative;flex:1;min-height:0;margin:6px 14px;display:flex;gap:6px}
+.enPic img{flex:1;min-width:0;height:100%;object-fit:cover;object-position:50% 25%;border-radius:8px}
+.enPic.gray img{filter:grayscale(1) brightness(.75)}
+.enPic .ov{position:absolute;z-index:2;font:900 15px var(--sans);background:#c4302b;color:#fff;padding:5px 11px;border-radius:14px;box-shadow:0 4px 12px rgba(0,0,0,.4)}
+.enPic .ov.n1{right:8px;top:10px}.enPic .ov.n2{right:22px;top:46px;transform:rotate(-4deg)}.enPic .ov.n3{right:4px;top:84px;transform:rotate(3deg)}
+.enPic .ov.dim{background:rgba(0,0,0,.6)}
+.enPic .scard{position:absolute;right:10px;bottom:12px;z-index:2;width:56%;background:#fffdf8;color:var(--ink);padding:8px 10px;border-radius:4px;transform:rotate(-3deg);box-shadow:0 6px 16px rgba(0,0,0,.45);font:600 12px var(--hand);display:grid;grid-template-columns:repeat(5,1fr);gap:5px}
+.enPic .scard b{grid-column:1/-1;font:400 16px var(--brush);text-align:center}
+.enPic .scard i{aspect-ratio:1;border-radius:50%;border:2px solid #c4302b;background:radial-gradient(#c4302b 35%,transparent 36%)}
+.enPic .moon{position:absolute;inset:0;border-radius:8px;background:radial-gradient(circle at 70% 25%,#f3e9c8 0 9%,transparent 9.5%),radial-gradient(circle at 64% 22%,#1b1f24 0 9%,transparent 9.5%),linear-gradient(#232a35,#11151b);display:flex;align-items:flex-end;justify-content:center;padding-bottom:18%}
+.enPic .moon span{font:700 14px var(--sans);color:#cfc8b8;border:1px solid #4a5260;border-radius:10px;padding:8px 14px;background:#1b1f24}
+.enFoot{flex:none;padding:8px 18px calc(14px + var(--bot))}
+#enText{font:500 15px/1.65 var(--sans);color:#e9e2d4}
+#bToNote{display:block;width:100%;min-height:52px;margin-top:12px;border-radius:26px;background:#fffdf8;color:var(--ink);font:900 17px var(--sans)}
+#bEnds{display:block;margin-top:2px;font:700 12px var(--sans);color:var(--like);text-decoration:underline;text-underline-offset:3px;min-height:30px}
+#ends{position:fixed;inset:0;z-index:75;background:rgba(15,17,20,.84);display:flex;justify-content:center;align-items:center;padding:14px}
+#ends .box{width:100%;max-width:420px;max-height:100%;background:#fbf8f0;border-radius:12px;padding:14px 14px 0;display:flex;flex-direction:column;overflow:hidden}
+#ends h2{font:900 18px var(--sans);margin-bottom:6px}
+#endsList{display:flex;flex-direction:column;gap:4px;min-height:0;overflow:hidden}
+#endsList div{display:flex;flex-direction:column;padding:5px 8px;border-radius:6px;background:#efe9dc;font:500 12px/1.35 var(--sans);color:var(--sub)}
+#endsList div b{font:400 16px/1.2 var(--brush);color:var(--ink)}
+#endsList div.no b{color:#a9a294}
+#ends button{min-height:46px;font:700 15px var(--sans);color:var(--like)}
 canvas#card{display:none}
 
 @media (max-height:700px){
@@ -331,6 +372,7 @@ canvas#card{display:none}
     <div id="room">
       <div class="chead"><button id="rBack" aria-label="back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg><b id="rBadge"></b></button><img id="cAv" alt=""><div><b id="cName"></b><span id="cSub"></span></div></div>
       <div id="msgs"></div>
+      <button id="bInvite" hidden></button>
       <div id="pat"><i></i></div>
       <div id="opts"></div>
     </div>
@@ -346,9 +388,17 @@ canvas#card{display:none}
   </div>
 </main>
 
+<main id="vEnding" class="view" hidden>
+  <div class="phone">
+    <div class="enHead"><span id="enKick"></span><h2 id="enTitle"></h2></div>
+    <div class="enPic" id="enPic"></div>
+    <div class="enFoot"><p id="enText"></p><button id="bToNote"></button></div>
+  </div>
+</main>
+
 <main id="vEnd" class="view" hidden>
   <div class="phone">
-    <div class="eTop"><h2 id="eH"></h2><div id="eScore"></div><div id="eRank"></div></div>
+    <div class="eTop"><h2 id="eH"></h2><div id="eScore"></div><div id="eRank"></div><button id="bEnds"></button></div>
     <div class="eSum" id="eSum"></div>
     <div id="eList"></div>
     <div id="eTip"></div>
@@ -360,6 +410,7 @@ canvas#card{display:none}
 
 <div id="clue" hidden><div class="box"><div class="pics" id="cluePics"></div><h3 id="clueH"></h3><ul id="clueList"></ul><button id="clueClose"></button></div></div>
 <div id="prof" hidden><div class="box"><div class="pp"><img id="profImg" alt=""><div class="bars" id="profBars"></div></div><div class="pi" id="profInfo"></div><button id="profClose"></button></div></div>
+<div id="ends" hidden><div class="box"><h2 id="endsH"></h2><div id="endsList"></div><button id="endsClose"></button></div></div>
 <div id="how" hidden><div class="box"><h2 id="howH"></h2><div id="howBody"></div><small id="howCredit"></small><button id="howClose"></button></div></div>
 <div id="loupe"></div>
 
@@ -388,8 +439,9 @@ canvas#card{display:none}
 </script>
 <script src="tm.js?v=1" data-game="matchapp-sagi"></script>
 <script src="sfx.js?v=1"></script>
-<script src="data.js?v=3"></script>
-<script src="game.js?v=3"></script>
+<script src="data.js?v=5"></script>
+<script src="talk.js?v=5"></script>
+<script src="game.js?v=5"></script>
 <script src="support.js?v=1" data-ja="缶コーヒー" data-en="a can of coffee"></script>
 </body>
 </html>
