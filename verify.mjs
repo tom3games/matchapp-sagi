@@ -241,7 +241,7 @@ await t('会話データの点検: 筋は1人3本以上・8往復以上、質問
 await t('会う: 写真詐欺の子は会うと別人。画面に「当たり」「外れ」の言葉が出ない', async () => {
   const r = await p.evaluate(() => { __h.to(5, ['d']); __h.date('d'); __h.meet('d', true); MA.dbg.step(4000); return { view: MA.view(), real: document.querySelector('#mtReal').src.includes('dm.webp'), tag: document.querySelector('#mtVerdict').textContent, words: /当たり|外れ/.test(document.body.innerText), d2: MA.S.d2q } })
   await p.screenshot({ path: ROOT + '/shots/v-meet-sagi.png' })
-  expect(r.view === 'vMeet' && r.real && r.tag === '写真と別人' && !r.words && r.d2, JSON.stringify(r))
+  expect(r.view === 'vMeet' && r.real && r.tag === '' /* 正体の札は出さない（本人 2026-11-13） */ && !r.words && r.d2, JSON.stringify(r))
 })
 await t('2回目は、どの子でも自分で決める（写真詐欺の子と話が合う道 → 写真より本人）', async () => {
   const r = await p.evaluate(() => { MA.act.d2ask(true); MA.dbg.step(300); const n = MA.d2opts().length; const o = MA.GIRLS.find(g => g.id === 'd').date2.o; MA.act.date2K(o.findIndex(x => x.g > 0)); MA.dbg.step(500); MA.act.nextMeet(); MA.dbg.step(500); return { n, end: MA.S.ending, view: MA.view(), title: document.querySelector('#enTitle').textContent, words: /当たり|外れ/.test(document.body.innerText) } })

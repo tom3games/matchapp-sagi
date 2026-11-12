@@ -578,7 +578,7 @@ window.__jsUp = true
     after(2300, () => {
       if (S.mi !== mine) return
       const v = $('#mtVerdict')
-      v.hidden = false; v.className = 'neutral'; v.textContent = clash ? t.clashTag : tx(g.tag)
+      v.hidden = !clash; v.className = 'neutral'; v.textContent = clash ? t.clashTag : '' // 正体の札（手帳持参など）は出さない（本人 2026-11-13）
       $('#mtText').textContent = clash ? t.clashText(tx(other.name), tx(g.name)) : tx(g.end)
       sfx(clash || !atari(g) ? 'lose' : 'win')
       if (g.bill && !clash) {
@@ -730,14 +730,14 @@ window.__jsUp = true
     $('#bEnds').textContent = t.endList(seenEnds.length, ENDS.length)
     $('#eSum').innerHTML = `<span>${t.rMet} ${r.met}</span><span>${t.rD2} ${r.d2n}</span><span>${t.rAvoid} ${r.avoid}</span><span class="bk">${t.rBlocked} ${r.blocked}</span>`
     const resL = { d2: lang === 'ja' ? '2回目' : '2nd date', met: lang === 'ja' ? '会った' : 'met', avoid: lang === 'ja' ? '断った' : 'declined', left: lang === 'ja' ? '解除された' : 'unmatched', nomeet: lang === 'ja' ? '会わず' : 'no date', clash: t.clashTag, blocked: t.blockedShort }
-    $('#eList').innerHTML = r.rows.map((x, i) => `<button class="eRow" data-i="${i}"><img src="${img(x.g.photos[0])}" alt=""><span class="nm">${tx(x.g.name)}</span><span class="ty">${tx(x.g.tag)}</span><span class="mt${x.res === 'blocked' ? ' bk' : ''}">${resL[x.res] || ''}</span></button>`).join('') || `<p class="eNone">${t.noMatch}</p>`
+    $('#eList').innerHTML = r.rows.map((x, i) => `<button class="eRow" data-i="${i}"><img src="${img(x.g.photos[0])}" alt=""><span class="nm">${tx(x.g.name)}</span><span class="mt${x.res === 'blocked' ? ' bk' : ''}">${resL[x.res] || ''}</span></button>`).join('') || `<p class="eNone">${t.noMatch}</p>`
     $('#eList').querySelectorAll('.eRow').forEach(b => b.onclick = () => openClue(r.rows[+b.dataset.i].g))
     $('#eTip').textContent = tipLine(r)
   }
   function openClue(g) {
     const t = L(), c = S.chats.find(x => x.g.id === g.id)
     $('#cluePics').innerHTML = [g.photos[g.type === 'sagi' ? 1 : 0], g.meet].map(k => `<img src="${img(k)}" alt="">`).join('')
-    $('#clueH').innerHTML = `${esc(tx(g.name))}<small>${esc(tx(g.tag))}</small>`
+    $('#clueH').innerHTML = `${esc(tx(g.name))}`
     const heard = c ? c.heard.filter(m => m.clue) : []
     const hit = TALK[g.id].hit ? `<li class="hd">${lang === 'ja' ? 'この子に刺さったのは' : 'What worked on her'}</li><li class="q">${esc(tx(TALK[g.id].hit))}</li>` : ''
     const first = TALK[g.id].firstHit ? `<li class="hd">${lang === 'ja' ? '最初の1通' : 'The opener'}</li><li class="q">${esc(tx(TALK[g.id].firstHit))}</li>` : ''
