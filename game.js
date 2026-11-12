@@ -2,7 +2,7 @@
 window.__jsUp = true
 ;(function () {
   const $ = s => document.querySelector(s)
-  const LIKES = 4, BATT_MS = 240000, MEET_WAIT = 20000
+  const LIKES = 4, BATT_MS = 264000, MEET_WAIT = 20000, D2_WAIT = 15000
   // ---- 言語
   let lang = 'ja'
   try { lang = localStorage.getItem('ms_lang') || ((navigator.language || 'ja').startsWith('ja') ? 'ja' : 'en') } catch (e) {}
@@ -55,7 +55,8 @@ window.__jsUp = true
     // 当たりが最初の1枚目に来ないようにする（チュートリアルで手がかりを覚える前に引かせない）
     const perm = {}
     for (const g of list) perm[g.id] = g.chat.map(() => { const a = [0, 1, 2]; for (let i = 2; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [a[i], a[j]] = [a[j], a[i]] } return a })
-    S = { seed, rare, order: list, idx: 0, likesLeft: LIKES, battT: 0, phase: 'swipe', pred: {}, dec: {}, liked: [], chats: [], ci: 0, mi: 0, met: [], loupeN: 0, perm, tut: false, photo: 0, sheet: false, done: false }
+    const perm2 = {}; for (const g of list) if (g.date2) { const a = [0, 1, 2]; for (let i = 2; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [a[i], a[j]] = [a[j], a[i]] } perm2[g.id] = a }
+    S = { seed, rare, perm2, d2: {}, order: list, idx: 0, likesLeft: LIKES, battT: 0, phase: 'swipe', pred: {}, dec: {}, liked: [], chats: [], ci: 0, mi: 0, met: [], loupeN: 0, perm, tut: false, photo: 0, sheet: false, done: false }
   }
   // ---- 画面切り替え
   const VIEWS = ['vTitle', 'vSwipe', 'vMatch', 'vChat', 'vMeet', 'vEnd']
@@ -313,8 +314,8 @@ window.__jsUp = true
     $('#mtWhen').textContent = t.meetHead; $('#mtWho').textContent = tx(g.place)
     $('#mtProf').src = img(g.photos[0]); $('#mtProfL').textContent = t.photoWas
     const r = $('#mtReal'); r.classList.remove('on'); r.src = img(g.meet); $('#mtRealL').textContent = t.realWas
-    $('#mtBill').hidden = true; $('#mtVerdict').hidden = true; $('#mtText').textContent = ''
-    const nb = $('#bMtNext'); nb.disabled = true; nb.style.opacity = .4
+    $('#mtBill').hidden = true; $('#mtVerdict').hidden = true; $('#mtText').textContent = ''; $('#mtOpts').hidden = true; $('#mtPat i').style.transform = 'scaleX(0)'
+    const nb = $('#bMtNext'); nb.disabled = true; nb.style.opacity = .4; nb.hidden = false; nb.textContent = t.next
     const mine = S.mi
     after(900, () => { if (S.mi !== mine) return; r.classList.add('on') })
     after(2300, () => {
@@ -329,27 +330,59 @@ window.__jsUp = true
         b.hidden = false; sfx('coin')
       }
       nb.disabled = false; nb.style.opacity = 1
+      if (g.date2) nb.textContent = t.date2Go
       S.mtT = after(14000, nextMeet)
     })
   }
-  function nextMeet() { if (S.phase !== 'meet' || $('#bMtNext').disabled) return; cancel(S.mtT); S.mi++; if (S.mi >= S.met.length) finish(); else meetScene() }
+  function nextMeet() {
+    if (S.phase !== 'meet' || $('#bMtNext').disabled || S.d2wait) return
+    cancel(S.mtT)
+    const g = GIRLS.find(x => x.id === S.met[S.mi])
+    if (g.date2 && !(g.id in S.d2)) return date2Scene(g)
+    S.mi++; if (S.mi >= S.met.length) finish(); else meetScene()
+  }
+  // 2回目のデート（当たりの子だけ）。3択で続くか切られるかが決まる
+  function date2Scene(g) {
+    const t = L(), d = g.date2
+    $('#mtWhen').textContent = t.date2Head; $('#mtWho').textContent = tx(d.scene)
+    $('#mtVerdict').hidden = true; $('#mtText').textContent = ''
+    const nb = $('#bMtNext'); nb.hidden = true
+    const box = $('#mtOpts'); box.hidden = false
+    box.innerHTML = S.perm2[g.id].map(k => `<button data-k="${k}">${esc(tx(d.o[k].t))}</button>`).join('')
+    box.querySelectorAll('button').forEach(b => b.onclick = () => choose2(+b.dataset.k))
+    S.d2wait = true; S.d2Start = G.t
+    S.d2T = after(D2_WAIT, () => choose2(-1))
+  }
+  function choose2(k) {
+    if (S.phase !== 'meet' || !S.d2wait) return
+    const g = GIRLS.find(x => x.id === S.met[S.mi]), d = g.date2, t = L()
+    cancel(S.d2T); S.d2wait = false; $('#mtPat i').style.transform = 'scaleX(0)'
+    const ok = k >= 0 && d.o[k].g > 0
+    S.d2[g.id] = { k, ok }
+    $('#mtOpts').hidden = true
+    $('#mtText').textContent = (k >= 0 ? '「' + tx(d.o[k].r) + '」 ' : '') + tx(ok ? d.ok : d.ng)
+    const v = $('#mtVerdict'); v.hidden = false; v.className = ok ? 'good' : 'bad'; v.textContent = ok ? t.d2ok : t.d2ng
+    sfx(ok ? 'win' : 'lose')
+    const nb = $('#bMtNext'); nb.hidden = false; nb.textContent = t.next; nb.disabled = false; nb.style.opacity = 1
+    S.mtT = after(14000, nextMeet)
+  }
   // ================= 採点と結果 =================
   function score(st) {
     st = st || S
-    let pts = 0, metGood = 0, metBad = 0, avoid = 0, predOk = 0
+    let pts = 0, metGood = 0, metBad = 0, avoid = 0, predOk = 0, d2ok = 0
     const rows = st.order.map(g => {
       const hit = g.type === 'atari', p = st.pred[g.id], c = st.chats.find(x => x.g.id === g.id)
       const ok = p ? (p === 'hit') === hit : null
       if (ok) predOk++
       let met = st.met.includes(g.id), res = ''
-      if (met) { if (hit) metGood++; else metBad++; res = 'met' }
+      if (met) { if (hit) metGood++; else metBad++; res = 'met'; const d = st.d2 && st.d2[g.id]; if (d) { res = d.ok ? 'kept' : 'dumped'; if (d.ok) d2ok++ } }
       else if (c && !hit && c.meet === false) { avoid++; res = 'avoid' }
       else if (c && c.left) res = 'left'
       return { g, hit, p, ok, res }
     })
-    pts = metGood * 40 - metBad * 20 + avoid * 15 + predOk * 5
-    const rank = pts <= 0 ? 0 : pts < 40 ? 1 : pts < 80 ? 2 : pts < 130 ? 3 : 4
-    return { pts, metGood, metBad, avoid, predOk, rank, rows }
+    pts = metGood * 40 + d2ok * 30 - metBad * 20 + avoid * 15 + predOk * 5
+    const rank = pts <= 0 ? 0 : pts < 50 ? 1 : pts < 100 ? 2 : pts < 160 ? 3 : 4
+    return { pts, metGood, metBad, avoid, predOk, d2ok, rank, rows }
   }
   function finish() {
     S.phase = 'end'; S.done = true; stopPat()
@@ -366,8 +399,8 @@ window.__jsUp = true
     $('#eH').textContent = t.rTitle
     $('#eScore').innerHTML = `${r.pts}<small>${t.rScore}</small>`
     $('#eRank').textContent = t.ranks[r.rank]
-    $('#eSum').innerHTML = `<span>${t.rMet} ${r.metGood}</span><span>${t.rAvoid} ${r.avoid}</span><span>${t.rPred} ${r.predOk}/${r.rows.length}</span><span>${t.rBad} ${r.metBad}</span>`
-    const resL = { met: lang === 'ja' ? '会った' : 'met', avoid: lang === 'ja' ? '断った' : 'skip', left: lang === 'ja' ? '解除' : 'gone' }
+    $('#eSum').innerHTML = `<span>${t.rMet} ${r.metGood}</span><span>${t.rAvoid} ${r.avoid}</span><span>${t.rPred} ${r.predOk}/${r.rows.length}</span><span>${t.rBad} ${r.metBad}</span><span>${t.rD2} ${r.d2ok}</span>`
+    const resL = { kept: t.d2ok, dumped: t.d2ng, met: lang === 'ja' ? '会った' : 'met', avoid: lang === 'ja' ? '断った' : 'skip', left: lang === 'ja' ? '解除' : 'gone' }
     $('#eList').innerHTML = r.rows.map((x, i) => `<button class="eRow" data-i="${i}"><img src="${img(x.g.photos[0])}" alt=""><span class="nm">${tx(x.g.name)}</span><span class="ty ${x.hit ? 'good' : 'bad'}">${tx(TYPES[x.g.type])}</span><span class="pr">${x.p ? (x.ok ? '◯' : '×') : '-'}</span><span class="mt">${resL[x.res] || ''}</span></button>`).join('')
     $('#eList').querySelectorAll('.eRow').forEach(b => b.onclick = () => openClue(r.rows[+b.dataset.i].g))
     $('#eTip').textContent = tipLine(r)
@@ -431,6 +464,7 @@ window.__jsUp = true
     if (S.phase === 'swipe' && S.view === 'vSwipe' && !S.tut && !S.busy) {
       S.battT += 0 // 進めるのは advance 側
     }
+    if (S.d2wait) $('#mtPat i').style.transform = `scaleX(${Math.max(0, 1 - (G.t - S.d2Start) / D2_WAIT)})`
     if (patLen) { const k = Math.max(0, 1 - (G.t - patStart) / patLen); const p = $('#pat'); p.firstChild.style.transform = `scaleX(${k})`; p.classList.toggle('hot', k < 0.35) }
     else $('#pat i').style.transform = 'scaleX(0)'
   }
@@ -486,8 +520,8 @@ window.__jsUp = true
   window.MA = {
     get S() { return S }, G, GIRLS, score: () => score(), lang: () => lang,
     dbg: { pause(v = true) { G.paused = v; last = performance.now() }, step(ms) { const n = Math.ceil(ms / 50); for (let i = 0; i < n; i++) advance(Math.min(50, ms - i * 50)) }, speed(x) { G.speed = x } },
-    act: { start: s => startGame(s), pred, like: () => decide('like'), pass: () => decide('pass'), loupe: setLoupe, photo: setPhoto, choose: i => { const c = C(); const k = S.perm[c.g.id][c.r][i]; choose(k) }, chooseK: choose, meet: meetChoice, toChat, nextMeet, openClue, makeCard, endSwipe },
-    view: () => S && S.view, opts: () => [...document.querySelectorAll('#opts button[data-k]')].map(b => +b.dataset.k),
+    act: { start: s => startGame(s), pred, like: () => decide('like'), pass: () => decide('pass'), loupe: setLoupe, photo: setPhoto, choose: i => { const c = C(); const k = S.perm[c.g.id][c.r][i]; choose(k) }, chooseK: choose, meet: meetChoice, toChat, nextMeet, date2: i => { const g = GIRLS.find(x => x.id === S.met[S.mi]); choose2(S.perm2[g.id][i]) }, date2K: choose2, openClue, makeCard, endSwipe },
+    view: () => S && S.view, opts: () => [...document.querySelectorAll('#opts button[data-k]')].map(b => +b.dataset.k), d2opts: () => (S && S.d2wait ? [...document.querySelectorAll('#mtOpts button[data-k]')].map(b => +b.dataset.k) : []),
   }
   boot()
 })()

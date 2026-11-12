@@ -46,8 +46,19 @@ window.__bot = function (kind, seed, react) {
     MA.dbg.step(300)
   }
   guard = 0
-  while (S().phase === 'meet' && guard++ < 50) { MA.dbg.step(3000); MA.act.nextMeet() }
+  while (S().phase === 'meet' && guard++ < 80) {
+    MA.dbg.step(3000)
+    const d = MA.d2opts()
+    if (d.length) {
+      MA.dbg.step(react)
+      if (kind === 'nothing') { MA.dbg.step(16000); continue }
+      const g = MA.GIRLS.find(x => x.id === S().met[S().mi]), o = g.date2.o
+      const k = kind === 'clue' ? d.reduce((x, y) => (o[y].g > o[x].g ? y : x), d[0]) : d[Math.floor(R() * d.length)]
+      MA.act.date2K(k); continue
+    }
+    MA.act.nextMeet()
+  }
   const r = MA.score()
-  return { pts: r.pts, rank: r.rank, metGood: r.metGood, metBad: r.metBad, avoid: r.avoid, predOk: r.predOk, phase: S().phase, rare: S().rare }
+  return { pts: r.pts, rank: r.rank, d2ok: r.d2ok, metGood: r.metGood, metBad: r.metBad, avoid: r.avoid, predOk: r.predOk, phase: S().phase, rare: S().rare }
 }
 `

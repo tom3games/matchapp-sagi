@@ -6,7 +6,7 @@
 <link rel="canonical" href="https://tom3games.com/play/matchapp-sagi/">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>マチアプ写真詐欺を見抜け（マッチングアプリのゲーム）</title>
-<meta name="description" content="マッチングアプリの女の子10人。盛った写真とプロフから、当たりか外れかを見抜く。手首、背景のゆがみ、上からの自撮り、全身の写真。トークは3択、待たせるとキレる子もいる。会ってみたら写真と別人、業者、お店の営業。見る目を試すゲーム。">
+<meta name="description" content="マッチングアプリの女の子11人。盛った写真とプロフから、当たりか外れかを見抜く。手首、背景のゆがみ、上からの自撮り、全身の写真。トークは3択、待たせるとキレる子もいる。会ってみたら写真と別人、5年前の写真、業者、お店の営業。当たりの子とは2回目のデートも。見る目を試すゲーム。">
 <meta property="og:type" content="website">
 <meta property="og:title" content="マチアプ写真詐欺を見抜け">
 <meta property="og:description" content="盛ったプロフ写真から、当たりの子を見抜く。手首・背景のゆがみ・上からの自撮り。会ってみたら別人、業者、お店の営業。">
@@ -189,6 +189,11 @@ img{-webkit-user-drag:none;user-select:none}
 #mtVerdict{display:inline-block;font:400 22px var(--brush);padding:0 10px;border:3px solid;border-radius:6px;transform:rotate(-4deg);margin-bottom:6px}
 #mtVerdict.good{color:#8fd3a8;border-color:#8fd3a8}
 #mtVerdict.bad{color:#ff8a7a;border-color:#ff8a7a}
+#mtOpts{display:flex;flex-direction:column;gap:6px;margin-top:6px}
+#mtOpts button{text-align:left;min-height:46px;padding:7px 14px;border-radius:12px;border:1.5px solid rgba(255,255,255,.35);font:500 14px/1.35 var(--sans);color:#fff;background:rgba(255,255,255,.08)}
+#mtOpts button:active{background:rgba(255,255,255,.2)}
+#mtPat{height:3px;margin-top:8px;background:rgba(255,255,255,.15)}
+#mtPat i{display:block;height:100%;background:#8fd3a8;transform-origin:0 50%;transform:scaleX(0)}
 #bMtNext{display:block;width:100%;min-height:52px;margin-top:10px;border-radius:26px;background:#fffdf8;color:var(--ink);font:900 17px var(--sans)}
 
 /* 結果: 反省会ノート */
@@ -295,7 +300,7 @@ canvas#card{display:none}
   <div class="phone">
     <div class="mtHead"><span id="mtWhen"></span><b id="mtWho"></b></div>
     <div class="mtStage"><div class="polar"><img id="mtProf" alt=""><span id="mtProfL"></span></div><img id="mtReal" alt=""><span class="realTag" id="mtRealL"></span><div id="mtBill" hidden></div></div>
-    <div class="mtFoot"><span id="mtVerdict" hidden></span><div id="mtText"></div><button id="bMtNext"></button></div>
+    <div class="mtFoot"><span id="mtVerdict" hidden></span><div id="mtText"></div><div id="mtOpts" hidden></div><div id="mtPat"><i></i></div><button id="bMtNext"></button></div>
   </div>
 </main>
 
@@ -340,8 +345,8 @@ canvas#card{display:none}
 </script>
 <script src="tm.js?v=1" data-game="matchapp-sagi"></script>
 <script src="sfx.js?v=1"></script>
-<script src="data.js?v=1"></script>
-<script src="game.js?v=1"></script>
+<script src="data.js?v=2"></script>
+<script src="game.js?v=2"></script>
 <script src="support.js?v=1" data-ja="缶コーヒー" data-en="a can of coffee"></script>
 </body>
 </html>

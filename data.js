@@ -10,6 +10,7 @@ const TYPES = {
   choro: ['誰にでも会う', 'Meets anyone'],
   gyosha: ['勧誘の業者', 'Recruiter'],
   concafe: ['お店の営業', 'Sales pitch'],
+  mukashi: ['昔の写真', 'Old photos'],
 }
 const GIRLS = [
   {
@@ -35,6 +36,11 @@ const GIRLS = [
         { t: ['今度うちで飲みません？', 'Want to drink at my place sometime?'], g: -1, r: ['…ごめんなさい、それはちょっと', '...Sorry, I\'d rather not'] },
       ] },
     ],
+    date2: { scene: ['2回目は、みのりが行きたがっていた古本市', 'Date two: the used-book fair Minori wanted to visit'], o: [
+      { t: ['前に言ってた作家の棚、先に探しておいた', 'I found the shelf for that author you mentioned'], g: 1, r: ['覚えててくれたんですか…うれしい', 'You remembered? That makes me happy'] },
+      { t: ['帰りにうち寄ってく？', 'Want to stop by my place after?'], g: -1, r: ['…今日は帰ります', '...I\'ll head home today'] },
+      { t: ['本ってスマホで読めば良くない？', 'Can\'t you just read on your phone?'], g: -1, r: ['そう…ですね', 'I... guess'] },
+    ], ok: ['帰りに「次はどこ行きます？」と向こうから聞かれた。', 'On the way home she asked, "Where to next?"'], ng: ['その夜「今日はありがとうございました」とだけ来て、それきりだった。', 'That night: "Thanks for today." Then nothing, ever.'] },
     end: ['クリームパンを半分こした。次の約束は向こうから来た。', 'We split a cream bun. She asked for the next date.'],
     clues: [['人に撮ってもらった写真と、全身の写真がそろっていた', 'Photos taken by others, plus a full-body shot'], ['いいね23。地味な写真だと少ないだけ', 'Only 23 likes. Plain photos just get fewer'], ['自己紹介が具体的で、質問を返してくれた', 'A specific bio, and she asked questions back']],
   },
@@ -61,6 +67,11 @@ const GIRLS = [
         { t: ['会えます？いつでもいいです', 'Can we meet? Any time'], g: -1, r: ['予定わかったら連絡しますね', 'I\'ll let you know when I know my schedule'] },
       ] },
     ],
+    date2: { scene: ['2回目は夜勤明けのお昼。さきは少し眠そう', 'Date two: lunch after her night shift. Saki looks sleepy'], o: [
+      { t: ['眠かったら短めにしよう。ラーメンだけ食べて解散でもいいよ', 'If you\'re sleepy, let\'s keep it short. Just ramen and go home'], g: 1, r: ['やさしい…次は私がお店探します', 'So kind... I\'ll find the place next time'] },
+      { t: ['せっかくだし夜まで遊ぼうよ', 'Let\'s hang out till night, since we\'re here'], g: -1, r: ['ごめん、帰って寝たい', 'Sorry, I need to go sleep'] },
+      { t: ['看護師って給料いいの？', 'Do nurses get paid well?'], g: -1, r: ['…そこ？', '...That\'s your question?'] },
+    ], ok: ['3回目の店は、さきが予約していた。', 'For date three, Saki booked the place.'], ng: ['「シフトが合わなくて」が3回続いた。', '"My shifts don\'t line up" came three times in a row.'] },
     end: ['味噌ラーメンを二人とも無言で完食した。帰りに「また行こ」と言われた。', 'We both finished the miso ramen in silence. On the way out: "Let\'s come again."'],
     clues: [['目線の高さの自撮りと全身の写真。加工の跡がない', 'Eye-level selfie and a full-body shot, no filter'], ['いいね286でも、写真が素直なら当たりはいる', '286 likes, but honest photos can still mean a keeper'], ['返信が遅れる理由を先に書いていた', 'She explained her slow replies up front']],
   },
@@ -87,6 +98,11 @@ const GIRLS = [
         { t: ['家行っていい？', 'Can I come to your place?'], g: -1, r: ['…', '...'] },
       ] },
     ],
+    date2: { scene: ['2回目は、こむぎも一緒にドッグカフェ', 'Date two: a dog cafe, Komugi included'], o: [
+      { t: ['こむぎ用のおやつ、持ってきた', 'I brought treats for Komugi'], g: 1, r: ['え！こむぎ、よかったね', 'What! Komugi, lucky you'] },
+      { t: ['犬は店の外につないでおけば？', 'Can\'t we tie the dog outside?'], g: -1, r: ['…ここドッグカフェだよ', '...This is a dog cafe'] },
+      { t: ['次は犬抜きで会おうよ', 'Next time, no dog'], g: -1, r: ['こむぎ抜きは無いかな', 'Komugi is non-negotiable'] },
+    ], ok: ['こむぎの散歩当番が、週に1回まわってきた。', 'I got a weekly turn on Komugi\'s walk.'], ng: ['こむぎにだけ、また会いたいと言われた。', 'Only Komugi wanted to see me again.'] },
     end: ['こむぎに気に入られた。飼い主にも、たぶん気に入られた。', 'Komugi liked me. I think the owner did too.'],
     clues: [['顔は隠れていても、全身の写真があった', 'Face hidden, but there was a full-body shot'], ['いいね9。隠すと選ばれにくいだけ', 'Only 9 likes. Hiding just gets fewer picks'], ['隠している理由を自分で書いていた', 'She explained why in her bio']],
   },
@@ -300,6 +316,32 @@ const GIRLS = [
     bill: [[['セット料金 60分', 'Set charge, 60 min'], 1500], [['ドリンク ×2', 'Drinks x2'], 1800], [['ここなへのドリンク ×3', 'Drinks for Kokona x3'], 3000], [['ここなのチェキ', 'Photo with Kokona'], 1200], [['延長 30分', 'Extension, 30 min'], 1000]],
     clues: [['どの返事にも同じ温度でノリノリだった', 'Same excitement no matter what I sent'], ['会う場所を向こうが決めた', 'She picked the meeting place'], ['仕事を「接客業（夜）」とぼかしていた', 'Her job was a vague "hospitality, nights"']],
   },
+  {
+    id: 'l', type: 'mukashi', name: ['ゆか', 'Yuka'], age: 30, h: 158, body: ['普通', 'Average'], job: ['営業事務', 'Sales admin'], area: ['大阪', 'Osaka'], drink: ['飲む', 'Yes'], smoke: ['吸わない', 'No'], likes: 410,
+    tags: [['タピオカ', 'Bubble tea'], ['海', 'The sea'], ['カフェ', 'Cafes'], ['韓国コスメ', 'K-beauty']],
+    intro: ['営業事務をしてます。写真は最近のです（ほぼ変わってないです笑）。カフェ巡りとタピオカが好き。写真より実物の方がいいってよく言われます', 'I do sales admin. These photos are recent (I basically haven\'t changed lol). I love cafe hopping and bubble tea. People say I look better in person'],
+    photos: ['l1', 'l2', 'l3'], meet: 'lm', pat: 15,
+    place: ['金曜 19:30 駅の東口', 'Fri 19:30, station east exit'],
+    chat: [
+      { her: ['マッチありがとう！ゆかです〜', 'Thanks for the match! I\'m Yuka~'], o: [
+        { t: ['1枚目の海とタピオカ、いいですね。最近も海行きました？', 'Love the sea and bubble tea in photo 1. Been to the sea lately?'], g: 1, r: ['最近…は行ってないかも笑', 'Lately... not really, lol'] },
+        { t: ['写真って、いつ頃のですか？', 'When were these photos taken?'], g: 0, r: ['え、ちょっと前？笑 でもほぼ変わってないよ', 'Um, a little while ago? lol. I look the same though'] },
+        { t: ['写真ごとに雰囲気ちがって、どれもかわいいですね', 'Every photo has a different vibe, all cute'], g: -1, r: ['でしょ〜笑', 'Right?~ lol'] },
+      ] },
+      { her: ['休みの日なにしてる？', 'What do you do on days off?'], o: [
+        { t: ['カフェ巡りです。最近のおすすめあります？', 'Cafe hopping. Any recent favorites?'], g: 1, r: ['よく行ってたタピオカのお店…あ、もう閉まったんだった', 'There was this bubble tea shop I loved... oh wait, it closed'] },
+        { t: ['今もタピオカ飲んでます？', 'Still drinking bubble tea?'], g: 0, r: ['最近は…飲んでないかな笑', 'Not lately... lol'] },
+        { t: ['寝てます', 'Sleeping'], g: -1, r: ['わかる〜', 'Same~'] },
+      ] },
+      { her: ['会いたい！仕事終わりの夜でもいい？', 'Let\'s meet! Is after work okay?'], o: [
+        { t: ['いいよ！', 'Sure!'], g: 0, r: ['やった〜', 'Yay~'] },
+        { t: ['最近の写真って送れる？', 'Could you send a recent photo?'], g: 0, r: ['会えばわかるよ〜笑', 'You\'ll see when we meet~ lol'] },
+        { t: ['昼はどう？', 'How about daytime?'], g: 0, r: ['仕事終わりがいいな', 'After work is better'] },
+      ] },
+    ],
+    end: ['東口に来たのは、5年ぶん時間がたったゆかだった。写真の日付は、ちゃんと右下に書いてあった。', 'The Yuka at the east exit was five years further along. The date was right there in the corner of the photo.'],
+    clues: [['1枚目の右下の日付が「2021」', 'Photo 1 is stamped "2021" in the corner'], ['3枚とも季節も髪型もばらばら（夏・冬・桜）', 'Every photo has a different season and hairstyle'], ['ホームボタンのある古いスマホ、流行っていたころのタピオカ', 'An old home-button phone and peak-era bubble tea'], ['「いつの写真？」に「ちょっと前」', '"When were these taken?" "A little while ago"']],
+  },
 ]
 
 const T = {
@@ -316,6 +358,7 @@ const T = {
     meetQ: n => `${n}と会う？`, meetYes: '会う', meetNo: '会わない', declined: 'お誘いは無かった',
     meetHead: '待ち合わせ', photoWas: 'プロフの写真', realWas: '来た人', next: '次へ',
     bill: '伝票', billTotal: '合計',
+    date2Go: '2回目のデートへ', date2Head: '2回目のデート', d2ok: '続いた', d2ng: 'フラれた', rD2: '2回目も続いた',
     rTitle: '反省会ノート', rScore: '点', rMet: '当たりに会えた', rAvoid: '外れを見抜いた', rPred: '予想の的中', rBad: '外れに会った',
     ranks: ['今夜も独り', '見る目が育ち中', 'まあまあ慎重', '写真を疑える人', 'マチアプの探偵'],
     yourPred: '予想', none: 'なし', save: '画像を保存', post: 'Xでポスト', again: 'もう一回', toTitle: 'タイトルへ',
@@ -323,9 +366,9 @@ const T = {
     tut: ['写真は左右をタップで切り替え', '拡大で手首や背景を確かめる', '当たりか外れかをハンコで予想', 'いいねは4回まで'],
     howH: '遊び方',
     howBody: [
-      '女の子は10人。写真とプロフを見て、当たりか外れかをハンコで予想する（当たれば5点）。',
+      '女の子は11人。写真とプロフを見て、当たりか外れかをハンコで予想する（当たれば5点）。',
       'いいねは4回まで。いいねした子とはトークできる。返事は3択。待たせすぎると相手が冷める。',
-      '最後に、会うか会わないかを決める。当たりに会えたら40点、外れに会うと20点引く。外れを会う前に見抜いて断ると15点。',
+      '最後に、会うか会わないかを決める。当たりに会えたら40点、外れに会うと20点引く。外れを会う前に見抜いて断ると15点。当たりの子とは2回目のデートがある。うまくいけば30点。雑に扱うと切られる。',
       '電池が切れたら、見ていない子は見送りになる。写真は盛ってある。手首・背景・撮った角度・全身の有無を見る。',
     ],
     credit: '通知音: Gravity Sound (CC BY 4.0)',
@@ -346,6 +389,7 @@ const T = {
     meetQ: n => `Meet ${n}?`, meetYes: 'Meet', meetNo: 'Skip', declined: 'No invite came',
     meetHead: 'Meeting', photoWas: 'Profile photo', realWas: 'Who showed up', next: 'Next',
     bill: 'Bill', billTotal: 'Total',
+    date2Go: 'Second date', date2Head: 'Second date', d2ok: 'Still on', d2ng: 'Dumped', rD2: 'Second date went well',
     rTitle: 'Debrief notebook', rScore: 'pts', rMet: 'Met a keeper', rAvoid: 'Spotted a fake', rPred: 'Correct guesses', rBad: 'Met a dud',
     ranks: ['Alone again', 'Learning to look', 'Fairly careful', 'Photo skeptic', 'Dating app detective'],
     yourPred: 'Guess', none: 'none', save: 'Save image', post: 'Post on X', again: 'Again', toTitle: 'Title',
@@ -353,9 +397,9 @@ const T = {
     tut: ['Tap left/right to flip photos', 'Zoom in on wrists and backgrounds', 'Stamp your guess: keeper or nope', 'Only 4 likes'],
     howH: 'How to play',
     howBody: [
-      'Ten women. Study photos and profile, then stamp your guess: keeper or nope (+5 if right).',
+      'Eleven women. Study photos and profile, then stamp your guess: keeper or nope (+5 if right).',
       'Only 4 likes. You can chat with the ones you like. Replies are 3-choice. Make her wait too long and she cools off.',
-      'Finally, decide whether to meet. Meeting a keeper: +40. Meeting a dud: -20. Spotting a dud and skipping: +15.',
+      'Finally, decide whether to meet. Meeting a keeper: +40. Meeting a dud: -20. Spotting a dud and skipping: +15. Keepers get a second date: +30 if it goes well. Treat her carelessly and she\'s gone.',
       'When the battery dies, unseen profiles are passed. Photos are edited. Check wrists, backgrounds, camera angle, and full-body shots.',
     ],
     credit: 'Notification sounds: Gravity Sound (CC BY 4.0)',
