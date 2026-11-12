@@ -23,7 +23,7 @@ window.__h = {
     const c = this.c(id), st = this.wait(id); if (st !== 'mine') return st
     const since = MA.G.t - c.arrivedAt; if (since < gap) MA.dbg.step(gap - since)
     MA.act.open(this.ci(id)); const o = MA.opts()
-    const isP = x => x.k === 'p', polite = x => isP(x) && MA.PROBES.find(p => p.id === x.id).min <= c.turn, sg = x => x.k === 's' && MA.SOCIAL.find(s => s.id === x.id).g > 0, sb = x => x.k === 's' && !sg(x)
+    const isP = x => x.k === 'p', polite = x => isP(x) && MA.PROBES.find(p => p.id === x.id).min <= c.turn, sg = x => x.k === 's' && ((MA.TALK[c.g.id].like || {})[x.id.replace(/2$/, '')] || 0) > 0, sb = x => x.k === 's' && !sg(x)
     let i = 0
     if (typeof pol === 'number') i = pol
     else if (pol === 'good') { i = o.findIndex(x => polite(x)); if (i < 0 || c.run >= 3) i = o.findIndex(sg); if (i < 0) i = o.findIndex(polite); if (i < 0) i = 0 }
@@ -178,6 +178,11 @@ await t('ほころび: 写真詐欺は全身写真をはぐらかす・昔の写
   })
   expect(r.d.clue && /会えば/.test(r.d.t) && r.l.clue && /閉まった/.test(r.l.t) && r.j.clue && /それより/.test(r.j.t) && r.k.clue && /シフト/.test(r.k.t) && r.f.clue && /浮気/.test(r.f.t) && !r.a.clue, JSON.stringify(r)); return r
 })
+await t('刺さる返しは子ごとに違う: ギャルに丁寧は「かたっ」、みのりに軽いノリは「慣れてる」、さきに丁寧は距離', async () => {
+  const pick = (id, style) => p.evaluate(([id, style]) => { __h.to(5, [id]); const c = __h.c(id); for (let k = 0; k < 8; k++) { __h.wait(id); MA.dbg.step(4000); MA.act.open(__h.ci(id)); const o = MA.opts(); const i = o.findIndex(x => x.k === 's' && x.id.replace(/2$/, '') === style); if (i >= 0) { const a0 = c.aff; MA.act.choose(i); MA.act.back(); MA.dbg.step(20000); return { d: c.aff - a0, txt: c.log.filter(m => m.who === 'her').slice(-1)[0].text } } MA.act.choose(o.findIndex(x => x.k === 'p')); MA.act.back() } return null }, [id, style])
+  const g = await pick('g', 'polite'), a = await pick('a', 'light'), b = await pick('b', 'polite'), gl = await pick('g', 'light')
+  expect(g && g.d < 0 && /かたっ/.test(g.txt) && a && a.d < 0 && /慣れてる/.test(a.txt) && b && b.d < 0 && gl && gl.d > 0, JSON.stringify({ g, a, b, gl })); return { g: g.txt, a: a.txt }
+})
 await t('待ち時間切れ: 即キレの子は10秒でマッチ解除（自己紹介に「返信遅い人はムリ」）', async () => {
   const r = await p.evaluate(() => { __h.to(5, ['h']); __h.wait('h'); MA.dbg.step(11000); const c = __h.c('h'); return { left: c.left, pat: c.g.pat, intro: c.g.intro[0].includes('返信遅い人はムリ') } })
   const e = await p.evaluate(() => { MA.dbg.step(4000); return { phase: MA.S.phase, view: MA.view(), end: MA.S.ending } })
@@ -274,7 +279,7 @@ await t('結果の画像が描ける（1080x1350・絵が入っている）', as
 })
 await t('Xでポストの URL（本文・ハッシュタグ・公開URL）', async () => {
   const u = await p.evaluate(() => { let got = ''; const o = window.open; window.open = x => { got = x }; document.querySelector('#bPost').click(); window.open = o; return got })
-  expect(/^https:\/\/x\.com\/intent\/post\?text=/.test(u) && u.includes(encodeURIComponent('#マチアプ写真詐欺を見抜け')) && u.includes(encodeURIComponent('エンディング')) && u.includes(encodeURIComponent('tom3games.com/play/matchapp-sagi/')), u)
+  expect(/^https:\/\/x\.com\/intent\/post\?text=/.test(u) && u.includes(encodeURIComponent('#マチアプで本命を見抜け')) && u.includes(encodeURIComponent('エンディング')) && u.includes(encodeURIComponent('tom3games.com/play/matchapp-sagi/')), u)
 })
 await t('英語に切り替え: 画面の文字が英語になる', async () => {
   await p.click('#bLang')

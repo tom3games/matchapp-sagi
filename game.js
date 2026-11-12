@@ -1,4 +1,4 @@
-// マチアプ写真詐欺を見抜け。時間は全部ゲームの時計（G.t）で進める。検証は MA.dbg.pause / step で台本どおりに動かす
+// マチアプで本命を見抜け（slug は matchapp-sagi のまま）。時間は全部ゲームの時計（G.t）で進める。検証は MA.dbg.pause / step で台本どおりに動かす
 window.__jsUp = true
 ;(function () {
   const $ = s => document.querySelector(s)
@@ -41,7 +41,7 @@ window.__jsUp = true
   Snd.setMute(muted)
   document.addEventListener('pointerdown', () => { Snd.init() }, true)
   // ---- 画像
-  const img = k => 'img/' + k + '.webp?v=2'
+  const img = k => 'img/' + k + '.webp?v=3'
   const cache = {}
   function preload(keys, onEach) { return Promise.all(keys.map(k => new Promise(ok => { if (cache[k] && cache[k].complete) { onEach && onEach(); return ok() } const im = cache[k] = cache[k] || new Image(); im.onload = im.onerror = () => { onEach && onEach(); ok() }; im.src = img(k) }))) }
   // ---- 状態
@@ -67,8 +67,8 @@ window.__jsUp = true
   function texts() {
     const t = L()
     document.documentElement.lang = lang
-    $('#tName').innerHTML = lang === 'ja' ? '<span>マチアプ</span><span>写真詐欺を</span><span>見抜け</span>' : '<span>Dating App</span><span>Photo Fraud</span>'
-    $('#tKick').textContent = lang === 'ja' ? '盛りを見抜く' : 'Spot the edits'
+    $('#tName').innerHTML = lang === 'ja' ? '<span>マチアプで</span><span>本命を</span><span>見抜け</span>' : '<span>Find Your</span><span>Match</span>'
+    $('#tKick').textContent = lang === 'ja' ? '本性を探れ' : 'Read between the lines'
     $('#tSub').textContent = t.sub; $('#bStart').textContent = t.start; $('#bHow').textContent = t.how
     $('#bLang').textContent = lang === 'ja' ? 'EN' : 'JA'
     $('#bLoupe').textContent = t.loupe
@@ -266,11 +266,11 @@ window.__jsUp = true
   // こちらの3択: まだ聞いていない探り2つ＋ふつうの返し1つ（並びは種で決まる）
   function optsFor(c) {
     const ord = S.porder[c.g.id], left = ord.filter(id => !c.asked.includes(id))
-    const o = left.slice(0, 2).map(id => ({ k: 'p', id }))
-    const so = S.sorder[c.g.id]
-    let si = c.turn
-    while (o.length < 3) { o.push({ k: 's', id: SOCIAL[so[si % SOCIAL.length]].id }); si++ }
-    return (c.turn + S.seed) % 2 ? [o[2], o[0], o[1]] : [o[0], o[2], o[1]]
+    const o = left.slice(0, 1).map(id => ({ k: 'p', id }))
+    const so = S.sorder[c.g.id], used = new Set()
+    for (let si = c.turn * 2, n = 0; o.length < 3 && n < SOCIAL.length * 2; si++, n++) { const s = SOCIAL[so[si % SOCIAL.length]]; if (used.has(styleOf(s.id))) continue; used.add(styleOf(s.id)); o.push({ k: 's', id: s.id }) }
+    const r = (c.turn * 7 + S.seed) % 3
+    return [o[r % 3], o[(r + 1) % 3], o[(r + 2) % 3]]
   }
   const optText = o => o.k === 'p' ? tx(PROBES.find(p => p.id === o.id).q) : tx(SOCIAL.find(s => s.id === o.id).t)
   function choose(oi) {
@@ -289,8 +289,11 @@ window.__jsUp = true
       if (!tk.eager && c.turn < p.min) { c.aff--; pre += lang === 'ja' ? 'え、いきなり？ ' : 'Whoa, already? ' }
       else if (!tk.eager && c.run >= 4) { c.aff--; pre += lang === 'ja' ? '質問ばっかりだね笑 ' : 'So many questions, lol. ' }
     } else {
-      const s = SOCIAL.find(x => x.id === o.id); c.run = 0; c.aff += s.g
-      reply = tx((s.g > 0 ? tk.nice : tk.meh)[c.turn % 2])
+      // 刺さる返しは子ごとに違う
+      const s = SOCIAL.find(x => x.id === o.id), st = styleOf(s.id), v = (tk.like && tk.like[st]) || 0
+      c.run = 0; c.aff += v; c.styles = c.styles || []; c.styles.push(st)
+      if (tk.heavy && (st === 'polite' || st === 'empathy')) c.deep++
+      reply = tk.re && tk.re[st] ? tx(tk.re[st]) : tx((v < 0 ? tk.meh : tk.nice)[c.turn % 2])
       if (s.flatter && g.id === 'i') instant = true
     }
     c.turn++
@@ -298,7 +301,8 @@ window.__jsUp = true
   }
   function afterReply(c, instant) {
     const g = c.g, tk = TALK[g.id]
-    if (instant || (!tk.cautious && tk.inviteAt && c.turn >= tk.inviteAt) || (tk.cautious && c.turn >= 8 && c.aff >= 2)) {
+    if (c.aff <= -3) { push(c, 'sys', L().fizzle); return done(c) }
+    if (instant || (!tk.cautious && tk.inviteAt && c.turn >= tk.inviteAt && c.aff >= 0) || (tk.cautious && c.turn >= 8 && c.aff >= 2)) {
       return herSend(c, tx(tk.ask), () => offer(c), 1800, tk.ask[2])
     }
     if (c.turn >= 12) { push(c, 'sys', L().fizzle); return done(c) }
@@ -654,7 +658,8 @@ window.__jsUp = true
     $('#cluePics').innerHTML = [g.photos[g.type === 'sagi' ? 1 : 0], g.meet].map(k => `<img src="${img(k)}" alt="">`).join('')
     $('#clueH').innerHTML = `${esc(tx(g.name))}<small>${esc(tx(g.tag))}</small>`
     const heard = c ? c.heard.filter(m => m.clue) : []
-    $('#clueList').innerHTML = g.clues.slice(0, 2).map(x => '<li>' + esc(tx(x)) + '</li>').join('') + (heard.length ? `<li class="hd">${t.heard}</li>` + heard.slice(0, 3).map(m => '<li class="q">「' + esc(m.text) + '」' + (m.memo ? t.memoed : '') + '</li>').join('') : '')
+    const hit = TALK[g.id].hit ? `<li class="hd">${lang === 'ja' ? 'この子に刺さったのは' : 'What worked on her'}</li><li class="q">${esc(tx(TALK[g.id].hit))}</li>` : ''
+    $('#clueList').innerHTML = g.clues.slice(0, 2).map(x => '<li>' + esc(tx(x)) + '</li>').join('') + hit + (heard.length ? `<li class="hd">${t.heard}</li>` + heard.slice(0, 3).map(m => '<li class="q">「' + esc(m.text) + '」' + (m.memo ? t.memoed : '') + '</li>').join('') : '')
     $('#clue').hidden = false; S.clueOpen = g.id
   }
   function openEnds() {

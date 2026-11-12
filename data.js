@@ -16,7 +16,7 @@ const GIRLS = [
   {
     id: 'a', full: true, fastLine: ['返信はやいですね笑 ', 'Wow, fast reply lol. '], type: 'atari', name: ['みのり', 'Minori'], age: 27, h: 156, body: ['普通', 'Average'], job: ['図書館司書', 'Librarian'], area: ['大阪', 'Osaka'], drink: ['ときどき', 'Sometimes'], smoke: ['吸わない', 'No'], likes: 23,
     tags: [['パン屋めぐり', 'Bakeries'], ['散歩', 'Walks'], ['読書', 'Books'], ['自炊', 'Cooking']],
-    intro: ['図書館で働いています。休みの日は近所の公園を散歩して、パン屋さんを開拓しています。人に撮ってもらった写真しかなくて、ちょっと変な顔です。まずはメッセージで話せたらうれしいです。', 'I work at a library. On days off I walk in the park and hunt for new bakeries. All my photos were taken by friends, so my face looks a bit goofy. Happy to chat first.'],
+    intro: ['図書館で働いています。休みの日は近所の公園を散歩して、パン屋さんを開拓しています。顔がちゃんと写った写真がなくてすみません。2枚目は友だちが撮ってくれました。まずはメッセージで話せたらうれしいです。', 'I work at a library. On days off I walk in the park and hunt for new bakeries. Sorry, I don\'t have photos that show my face well. A friend took the second one. Happy to chat first.'],
     photos: ['a1', 'a2', 'a3'], meet: 'am', spd: [6000, 9000], tooFast: 2500, pat: 90,
     place: ['土曜 12:00 駅の裏のパン屋の前', 'Sat 12:00, the bakery behind the station'],
     date2: { scene: ['2回目は、みのりが行きたがっていた古本市', 'Date two: the used-book fair Minori wanted to visit'], o: [
@@ -142,7 +142,7 @@ const GIRLS = [
 
 const T = {
   ja: {
-    title: 'マチアプ写真詐欺を見抜け', sub: '盛った写真の中から、本物を探す', start: 'アプリを開く', how: '遊び方', lang: 'English',
+    title: 'マチアプで本命を見抜け', sub: '盛った写真とトークの一言から、本命を探す', start: 'アプリを開く', how: '遊び方', lang: 'English',
     loading: 'プロフを読み込み中', likesLeft: n => `いいね あと${n}`, batt: '電池',
     pass: '見送り', like: 'いいね', loupe: '拡大',
     profAge: (a, h) => `${a}歳 ${h}cm`, lbl: { body: '体型', job: '職業', area: '住まい', drink: 'お酒', smoke: 'タバコ', likes: 'いいね' },
@@ -168,12 +168,12 @@ const T = {
       '行動しだいで結末が変わる。写真は盛ってある。手首・背景・撮った角度・全身の有無を見る。',
     ],
     credit: '通知音: Gravity Sound (CC BY 4.0)',
-    postText: (s, r, e) => `マチアプのエンディング「${e}」、${s}点「${r}」でした。盛った写真の中から本性を探れ`,
-    tags: '#マチアプ写真詐欺を見抜け #バカゲー',
+    postText: (s, r, e) => `マチアプで本命を見抜け、エンディング「${e}」${s}点「${r}」でした。会う前に本性を探れ`,
+    tags: '#マチアプで本命を見抜け #バカゲー',
     you: 'あなた',
   },
   en: {
-    title: 'Dating App Photo Fraud', sub: 'Find the real one among the edited photos', start: 'Open the app', how: 'How to play', lang: '日本語',
+    title: 'Find Your Match', sub: 'Read the photos and the chats. Find the one.', start: 'Open the app', how: 'How to play', lang: '日本語',
     loading: 'Loading profiles', likesLeft: n => `${n} likes left`, batt: 'Battery',
     pass: 'Pass', like: 'Like', loupe: 'Zoom',
     profAge: (a, h) => `${a} / ${h}cm`, lbl: { body: 'Body', job: 'Job', area: 'Lives', drink: 'Drinks', smoke: 'Smokes', likes: 'Likes' },
@@ -199,7 +199,7 @@ const T = {
       'Your actions decide the ending. Photos are edited: check wrists, backgrounds, camera angles, full-body shots.',
     ],
     credit: 'Notification sounds: Gravity Sound (CC BY 4.0)',
-    postText: (s, r, e) => `Ending: "${e}". ${s} pts, "${r}" on Dating App Photo Fraud. Find who she really is behind the edited photos`,
+    postText: (s, r, e) => `Ending: "${e}". ${s} pts, "${r}" on Find Your Match. Read the photos and chats, find the one`,
     tags: '#bakage',
     you: 'You',
   },

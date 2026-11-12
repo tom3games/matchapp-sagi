@@ -2,6 +2,7 @@
 // kind:
 //   clue    … プロフを見て、トークで探りを入れ、ほころびが出た子とは会わない
 //   profile … プロフだけで選び、探りを入れずに会う（考察しない人）
+//   kind    … いつも一番ていねい・やさしい返しを選ぶ人
 //   random  … 適当
 //   mix     … 種ごとに癖を変えた「ふつうの人」（エンディングの届きやすさを見る用）
 //   nothing … 全員見送り
@@ -26,6 +27,7 @@ window.__bot = function (kind, seed, react) {
     else if (kind === 'mix') { if (R() < P.like) MA.act.like(); else MA.act.pass() }
     else if (kind === 'meetall') MA.act.like()
     else if (kind === 'clue') { if (looksGood(g) || (g.full && R() < .3)) MA.act.like(); else MA.act.pass() }
+    else if (kind === 'kind') { if (looksGood(g)) MA.act.like(); else MA.act.pass() }
     else { if (looksGood(g) || g.full) MA.act.like(); else MA.act.pass() }
     MA.dbg.step(400)
   }
@@ -47,7 +49,7 @@ window.__bot = function (kind, seed, react) {
     MA.act.open(ci)
     const st = c.state
     if (st === 'offer') {
-      const yes = kind === 'random' ? R() < .5 : kind === 'mix' ? R() < P.meet : kind === 'meetall' || kind === 'profile' ? true : red(c) === 0 && !S().met.length
+      const yes = kind === 'random' ? R() < .5 : kind === 'mix' ? R() < P.meet : kind === 'meetall' || kind === 'profile' || kind === 'kind' ? true : red(c) === 0 && !S().met.length
       MA.act.meet(yes)
     } else if (st === 'clash') {
       MA.act.clash(kind === 'clue' ? 'me' : kind === 'mix' ? ['other', 'me', 'both'][P.clash] : ['other', 'me', 'both'][Math.floor(R() * 3)])
@@ -55,7 +57,9 @@ window.__bot = function (kind, seed, react) {
       MA.act.sus(kind === 'clue' ? 0 : kind === 'mix' ? P.sus : Math.floor(R() * 3))
     } else if (st === 'mine') {
       const o = MA.opts(), soc = o.map((x, i) => ({ x, i })).filter(z => z.x.k === 's')
-      const goodS = soc.find(z => MA.SOCIAL.find(s => s.id === z.x.id).g > 0)
+      const st = id => id.replace(/2$/, ''), like = MA.TALK[c.g.id].like || {}
+      // 手がかり bot: この子に刺さる型を選ぶ（プロフと文の調子から読む）／やさしい bot: いつも一番ていねいな返し
+      const goodS = kind === 'kind' ? (soc.find(z => st(z.x.id) === 'polite') || soc.find(z => st(z.x.id) === 'empathy')) : soc.slice().sort((x, y) => (like[st(y.x.id)] || 0) - (like[st(x.x.id)] || 0)).find(z => (like[st(z.x.id)] || 0) > 0)
       const probes = o.map((x, i) => ({ x, i })).filter(z => z.x.k === 'p' && MA.PROBES.find(p => p.id === z.x.id).min <= c.turn)
       const cautious = MA.TALK[c.g.id].cautious
       if (kind === 'clue') {
@@ -64,7 +68,7 @@ window.__bot = function (kind, seed, react) {
         else if (probes.length && c.run < 3) MA.act.choose(probes[0].i)
         else if (goodS) MA.act.choose(goodS.i)
         else MA.act.choose(probes.length ? probes[0].i : 0)
-      } else if (kind === 'profile') {
+      } else if (kind === 'profile' || kind === 'kind') {
         if (cautious && c.turn >= 6 && c.turn >= c.invBlock) MA.act.invite()
         else MA.act.choose(goodS ? goodS.i : 0)
       } else if (kind === 'mix') {
@@ -86,14 +90,14 @@ window.__bot = function (kind, seed, react) {
     if (S().d2q) {
       MA.dbg.step(react)
       const g = MA.GIRLS.find(x => x.id === S().met[S().mi]), c = S().chats.find(x => x.g.id === g.id)
-      const yes = kind === 'clue' ? (c && red(c) === 0 && g.full) : kind === 'mix' ? R() < P.d2 : kind === 'profile' || kind === 'meetall' ? true : R() < .5
+      const yes = kind === 'clue' ? (c && red(c) === 0 && g.full) : kind === 'mix' ? R() < P.d2 : kind === 'profile' || kind === 'meetall' || kind === 'kind' ? true : R() < .5
       MA.act.d2ask(yes); continue
     }
     const d = MA.d2opts()
     if (d.length) {
       MA.dbg.step(react)
       const g = MA.GIRLS.find(x => x.id === S().met[S().mi]), o = g.date2.o
-      const k = kind === 'clue' || kind === 'profile' || (kind === 'mix' && R() < .6) ? d.reduce((x, y) => (o[y].g > o[x].g ? y : x), d[0]) : d[Math.floor(R() * d.length)]
+      const k = kind === 'clue' || kind === 'profile' || kind === 'kind' || (kind === 'mix' && R() < .6) ? d.reduce((x, y) => (o[y].g > o[x].g ? y : x), d[0]) : d[Math.floor(R() * d.length)]
       MA.act.date2K(k); continue
     }
     MA.act.nextMeet()

@@ -12,19 +12,23 @@ const PROBES = [
 ]
 // ふつうの返し（g:1 は共感・共通点・軽い自己開示、g:-1 は褒めすぎ・自分語り・下心）
 const SOCIAL = [
-  { id: 's1', t: ['それいいね。どんなところが好き？', 'Nice. What do you like about it?'], g: 1 },
-  { id: 'b1', t: ['写真かわいすぎて緊張する', 'Your photos are so cute I\'m nervous'], g: -1, flatter: 1 },
-  { id: 's2', t: ['わかる、僕も最近それハマってる', 'Same, I\'ve been into that lately'], g: 1 },
-  { id: 'b2', t: ['僕は休みはジム行ってカフェで勉強して夜は飲みに行って最近はキャンプ道具もそろえて', 'I hit the gym, study at cafes, drink at night, and just bought all this camping gear and'], g: -1 },
-  { id: 's3', t: ['今日はちょっと仕事で疲れた。そっちはどんな一日だった？', 'Long day at work for me. How was yours?'], g: 1 },
-  { id: 'b3', t: ['今度うちで飲もうよ', 'Let\'s drink at my place sometime'], g: -1 },
+  { id: 'polite', t: ['休みの日のこと、もう少し詳しく聞いてもいいですか？', 'Could I hear a little more about your days off?'] },
+  { id: 'polite2', t: ['丁寧にありがとうございます。僕は週末はだいたい料理をしてます', 'Thank you for the kind reply. I usually cook on weekends'] },
+  { id: 'light', t: ['それウケる笑', 'lol that\'s great'] },
+  { id: 'light2', t: ['まじ？最高じゃん', 'no way, love it'] },
+  { id: 'empathy', t: ['それいいね。どんなところが好き？', 'Nice. What do you like about it?'] },
+  { id: 'empathy2', t: ['わかる。疲れた日ってそういうのしたくなるよね', 'I get it. On tiring days you just want that'] },
+  { id: 'praise', t: ['写真かわいすぎて緊張する', 'Your photos are so cute I\'m nervous'], flatter: 1 },
+  { id: 'long', t: ['僕は休みはジム行ってカフェで勉強して夜は飲みに行って最近はキャンプ道具もそろえて', 'I hit the gym, study at cafes, drink at night, and just bought all this camping gear and'] },
+  { id: 'lewd', t: ['今度うちで飲もうよ', 'Let\'s drink at my place sometime'] },
 ]
+const styleOf = id => id.replace(/2$/, '')
 const INVITE = ['今度、昼にお茶でもどう？土曜か日曜で', 'Want to grab tea some afternoon? Saturday or Sunday']
 const TALK = {
   a: { open: ['マッチありがとうございます！みのりです。よろしくお願いします', 'Thanks for the match! I\'m Minori. Nice to meet you'], cautious: 1,
     ans: { hol: ['近所の公園を歩いて、パン屋さんに寄ってます。先週は駅裏のクリームパン', 'I walk in the park and stop by bakeries. Last week, the cream bun behind the station'], job: ['図書館で働いてます。返ってきた本を棚に戻す時間が好きで', 'I work at a library. I like shelving the returned books'], app: ['先月からです。友だちにすすめられて', 'Since last month. A friend recommended it'], area: ['駅裏の小さいパン屋さん。朝7時に開くんです', 'A tiny bakery behind the station. Opens at 7 am'], night: ['早寝です。11時には寝ちゃいます', 'Early. Asleep by 11'], photo: ['友だちが撮ったのしかなくて…2枚目が一番最近です', 'Only ones friends took... the second one is the newest'], call: ['会う前に一回、話してみたいです', 'I\'d like to talk once before meeting'], ex: ['2年前に。向こうの転勤で、自然に…ですね', 'Two years ago. He got transferred, and it just faded'] },
     nice: [['そう言ってもらえるとうれしいです', 'That makes me happy'], ['わかります！', 'I get that!']], meh: [['あ、そうなんですね…', 'Oh, I see...'], ['えっと…', 'Um...']],
-    early: ['もう少しお話ししてからがいいです', 'I\'d like to talk a little more first'], yes: ['行きたいです！楽しみにしてます', 'I\'d love to! Looking forward to it'], ask: ['よかったら今度、パン屋さん一緒に行きませんか？', 'Would you like to visit a bakery together sometime?'] },
+    early: ['…遊び慣れてそう。もう少しお話ししてからがいいです', '...You seem experienced at this. I\'d like to talk a little more first'], yes: ['行きたいです！楽しみにしてます', 'I\'d love to! Looking forward to it'], ask: ['よかったら今度、パン屋さん一緒に行きませんか？', 'Would you like to visit a bakery together sometime?'] },
   b: { open: ['はじめまして、さきです！返信ゆっくりでごめんなさい', 'Hi, I\'m Saki! Sorry if I reply slowly'], cautious: 1,
     ans: { hol: ['夜勤明けはラーメン食べて寝てます笑 休みの日は海まで歩くことも', 'After night shifts I eat ramen and sleep, lol. On days off I sometimes walk to the sea'], job: ['看護師です。夜勤が月に6回くらい', 'Nurse. About six night shifts a month'], app: ['3か月くらい。休みが不規則で出会いがなくて', 'About three months. Irregular days off, no chance to meet people'], area: ['駅前の家系ラーメン。大盛りを完食したことあります', 'The ramen shop by the station. I once finished an extra large'], night: ['夜勤の日はずっと起きてます笑', 'On night shifts I\'m up all night, lol'], photo: ['1枚目が先月です。浜辺のは夏に友だちが撮ってくれました', 'The first is from last month. A friend took the beach one in summer'], call: ['夜勤がない日なら大丈夫です', 'Fine on days without a night shift'], ex: ['すれ違いですね。シフトが合わなくて', 'We drifted. Our shifts never matched'] },
     nice: [['話しやすいです笑', 'You\'re easy to talk to, lol'], ['それ、わかります', 'I know what you mean']], meh: [['…そうなんですね', '...I see'], ['うーん', 'Hmm']],
@@ -32,7 +36,7 @@ const TALK = {
   c: { open: ['マッチありがとうございます。犬の写真ばっかりですみません', 'Thanks for the match. Sorry it\'s all dog photos'], cautious: 1,
     ans: { hol: ['こむぎの散歩で、川沿いを1時間くらい歩いてます', 'I walk Komugi along the river for about an hour'], job: ['動物病院で受付と看護をしてます', 'Reception and nursing at a vet clinic'], app: ['半年くらいです。のんびり使ってます', 'About half a year. Taking it slow'], area: ['川沿いのドッグカフェ。こむぎの顔見知りが多くて', 'A dog cafe by the river. Komugi has lots of friends there'], night: ['こむぎに合わせて早寝です', 'Early, on Komugi\'s schedule'], photo: ['顔がちゃんと写ってるのが無くて…2枚目が全身です。背は高めです', 'None with my face clearly... the second one is full body. I\'m on the tall side'], call: ['いいですよ。こむぎがうるさいかもですが', 'Sure. Komugi might be noisy'], ex: ['向こうが犬苦手で。価値観ですね', 'He didn\'t like dogs. Different values'] },
     nice: [['うれしいです', 'That\'s nice to hear'], ['こむぎも喜んでます笑', 'Komugi approves, lol']], meh: [['あはは…', 'Haha...'], ['そうですか…', 'I see...']],
-    early: ['もうちょっと話してからにしませんか', 'Can we talk a bit more first?'], yes: ['ぜひ！土曜の朝、川沿いで', 'Yes! Saturday morning by the river'], ask: ['今度、こむぎの散歩コース一緒に歩きませんか？', 'Want to walk Komugi\'s route with me sometime?'] },
+    early: ['慣れてる…？もうちょっと話してからにしませんか', 'Are you... used to this? Can we talk a bit more first?'], yes: ['ぜひ！土曜の朝、川沿いで', 'Yes! Saturday morning by the river'], ask: ['今度、こむぎの散歩コース一緒に歩きませんか？', 'Want to walk Komugi\'s route with me sometime?'] },
   d: { open: ['ありがと〜よろしく', 'thx~ hi'], inviteAt: 6,
     ans: { hol: ['カフェ行ったり〜自撮りしたり笑', 'cafes~ selfies lol'], job: ['アパレル〜梅田のほう', 'apparel~ umeda'], app: ['1年くらい？笑', 'like a year? lol'], area: ['梅田のカフェ〜暗めのとこが好き', 'cafes in umeda~ i like dark ones', 1], night: ['夜型〜', 'night owl~'], photo: ['えー今ないかも笑 会えばわかるよ', 'hmm don\'t have any lol. you\'ll see when we meet', 1], call: ['顔出しなしならいいよ〜', 'only with camera off~', 1], ex: ['なんか冷められた笑', 'he just lost interest lol'] },
     nice: [['ありがと〜', 'thx~'], ['でしょ〜', 'right?~']], meh: [['へー', 'k'], ['ふーん', 'hm']],
@@ -70,3 +74,21 @@ const TALK = {
     nice: [['うれしい〜', 'Aww~'], ['わかる〜', 'Same~']], meh: [['そっか', 'I see'], ['うーん', 'Hmm']],
     yes: ['いいよ！仕事終わりの夜がいいな', 'Sure! After work in the evening is best'], ask: ['会いたい！仕事終わりの夜でもいい？', 'Let\'s meet! Is after work okay?'] },
 }
+
+// 子ごとに刺さる返しの型（+1 刺さる / 0 ふつう / -1 冷める）。re は型ごとの反応、hit は答え合わせの一言
+// 読み方: 自己紹介の書き方・タグ・写真の雰囲気と、最初の数通の文の調子
+const STYLE = {
+  a: { like: { polite: 1, empathy: 1, light: -1, praise: -1, long: -1, lewd: -1 }, re: { light: ['…なんだか、慣れてる感じですね', '...You seem pretty used to this'], praise: ['あ、ありがとうございます…（少し困った顔の絵文字）', 'Oh, um, thank you... (a slightly awkward emoji)'] }, hit: ['丁寧で具体的な返し。軽いノリや早い誘いは「慣れてそう」と疑われる', 'Polite, specific replies. Breezy lines or an early invite make her suspicious'] },
+  b: { like: { light: 1, empathy: 1, polite: -1, praise: -1, long: -1, lewd: -1 }, re: { polite: ['かしこまらなくて大丈夫ですよ笑', 'No need to be so formal, lol'], light: ['それ！笑', 'Right?! lol'] }, hit: ['肩の力が抜けた気さくな返し。かしこまるほど距離ができる', 'Relaxed, casual replies. Too formal and she pulls back'] },
+  c: { like: { polite: 1, empathy: 1, light: -1, praise: -1, long: 0, lewd: -1 }, re: { light: ['…ノリがいい人なんですね', '...You\'re quite the party type'] }, hit: ['丁寧で落ち着いた返し。ノリが軽いと引かれる', 'Calm, polite replies. Too breezy and she backs off'] },
+  d: { like: { light: 1, praise: 1, polite: 0, empathy: 0, long: -1, lewd: -1 }, re: { praise: ['でしょ〜笑', 'right?~ lol'], long: ['ながっ', 'too long'] }, hit: ['ノリと褒め言葉。ただし写真の話になるとはぐらかす', 'Banter and compliments. But photo talk gets dodged'] },
+  e: { like: { polite: 1, empathy: 1, light: 0, praise: 1, long: 0, lewd: -1 }, heavy: 1, re: { polite: ['やさしい…もう離れないでね', 'So kind... don\'t ever leave me'], empathy: ['わかってくれるの、あなただけ', 'You\'re the only one who understands me'] }, hit: ['何を言っても重くなる。優しくするほど重い', 'Everything makes it heavier. The kinder, the heavier'] },
+  f: { like: { polite: 1, empathy: 1, light: -1, praise: 0, long: 0, lewd: -1 }, heavy: 1, re: { polite: ['うれしい。これって、もう付き合ってるってことですよね', 'I\'m happy. So this means we\'re dating now, right?'], empathy: ['やっぱり。あなたは元彼と違う', 'I knew it. You\'re not like my ex'] }, hit: ['優しさほど重くなる。将来の話に直行', 'The kinder you are, the heavier it gets. Straight to the future'] },
+  g: { like: { light: 1, praise: 0, polite: -1, empathy: -1, long: -1, lewd: -1 }, re: { polite: ['かたっ笑 敬語やめよ', 'so stiff lol drop the formal stuff'], empathy: ['むずかしい話きらい〜', 'hate deep talk~'], light: ['それな！', 'facts!'], long: ['ながっ 読んでない', 'too long didnt read'] }, hit: ['テンポの速い軽い返し。丁寧だと「かたい」、真面目だと混乱する', 'Fast, light banter. Polite is "stiff," serious just confuses her'] },
+  h: { like: { light: 0, polite: 0, empathy: 0, praise: 0, long: -1, lewd: -1 }, re: { long: ['長い。結論だけ', 'Too long. Get to the point'] }, hit: ['内容より返信の速さ', 'Speed over content'] },
+  i: { like: { praise: 1, light: 1, polite: 0, empathy: 0, long: -1, lewd: 0 }, re: { praise: ['え〜好き！', 'aww i like u!'] }, hit: ['褒め言葉。すぐ会おうとするのが手がかり', 'Compliments. How fast she wants to meet is the tell'] },
+  j: { like: { praise: 1, empathy: 1, light: -1, polite: 0, long: 0, lewd: -1 }, re: { praise: ['ありがとうございます！素直な人は成功しますよ', 'Thank you! Honest people succeed, you know'], light: ['あ、はい…', 'Oh, okay...'] }, hit: ['褒め言葉と前向きな話。それが勧誘の入口', 'Compliments and ambition talk. That\'s the recruiting door'] },
+  k: { like: { praise: 1, light: 1, polite: 1, empathy: 1, long: 1, lewd: 1 }, hit: ['どんな返しでも同じ温度。それが営業', 'Same energy no matter what. That\'s the sales pitch'] },
+  l: { like: { empathy: 1, polite: 1, light: 0, praise: -1, long: 0, lewd: -1 }, re: { praise: ['写真の話はいいよ〜笑 それより最近どう？', 'let\'s not talk photos lol. how\'ve you been?'] }, hit: ['共感の返し。写真を褒めるとはぐらかす', 'Empathy. Praise her photos and she changes the subject'] },
+}
+for (const k in STYLE) Object.assign(TALK[k], STYLE[k])

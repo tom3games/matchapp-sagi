@@ -15,7 +15,7 @@ const p = await ctx.newPage(); p.on('pageerror', e => console.log('ERR', e.messa
 await p.goto(`http://localhost:${PORT}/`); await p.waitForFunction(() => window.__msReady)
 await p.addScriptTag({ content: BOT })
 const out = {}
-for (const [kind, react] of [['clue', 300], ['clue', 5000], ['clue', 10000], ['profile', 5000], ['random', 5000], ['meetall', 300], ['nothing', 300]]) {
+for (const [kind, react] of [['clue', 300], ['clue', 5000], ['clue', 10000], ['profile', 5000], ['kind', 5000], ['random', 5000], ['meetall', 300], ['nothing', 300]]) {
   const name = kind + (react >= 10000 ? '(1手10秒)' : react >= 5000 ? '(1手5秒)' : ''), pts = [], ends = {}
   for (let s = 1; s <= N; s++) { const r = await p.evaluate(([k, s, rt]) => window.__bot(k, s, rt), [kind, s * 17, react]); pts.push(r.pts); ends[r.end] = (ends[r.end] || 0) + 1 }
   pts.sort((a, b) => a - b)
