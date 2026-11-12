@@ -14,8 +14,8 @@ await ctx.addInitScript(() => { try { localStorage.setItem('ms_tut', '1') } catc
 const p = await ctx.newPage(); await p.goto(`http://localhost:${PORT}/`); await p.waitForFunction(() => window.__msReady)
 await p.addScriptTag({ content: BOT })
 const out = {}
-for (const [kind, react] of [['random', 300], ['clue', 300], ['clue', 5000], ['meetall', 300], ['nothing', 300]]) {
-  const name = kind + (react >= 5000 ? '(人の速さ)' : ''), pts = [], ranks = []
+for (const [kind, react] of [['random', 300], ['random', 5000], ['clue', 300], ['clue', 5000], ['clue', 10000], ['meetall', 300], ['nothing', 300]]) {
+  const name = kind + (react >= 10000 ? '(1手10秒)' : react >= 5000 ? '(1手5秒)' : ''), pts = [], ranks = []
   for (let s = 1; s <= N; s++) { const r = await p.evaluate(([k, s, rt]) => window.__bot(k, s, rt), [kind, s * 17, react]); pts.push(r.pts); ranks.push(r.rank) }
   pts.sort((a, b) => a - b)
   out[name] = { 平均: Math.round(pts.reduce((a, b) => a + b, 0) / N), 最低: pts[0], 中央: pts[N >> 1], 最高: pts[N - 1], ランク: ranks.join('') }

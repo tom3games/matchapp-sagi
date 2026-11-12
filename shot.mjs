@@ -22,7 +22,7 @@ const snap = async n => { await p.waitForTimeout(450); await p.screenshot({ path
 await snap('01title')
 await p.evaluate(() => { localStorage.setItem('ms_tut', '1'); MA.dbg.pause(); MA.act.start() })
 await snap('02card')
-await p.evaluate(() => { MA.act.pred('hit') }); await snap('03stamp')
+
 // 拡大
 await p.evaluate(() => MA.act.loupe(true))
 const box = await p.locator('#topCard .photo').boundingBox()
@@ -34,7 +34,7 @@ await p.evaluate(() => {
   const S = MA.S; let extra = 0
   for (let i = 0; i < 12 && S.phase === 'swipe'; i++) {
     const g = S.order[S.idx]; if (!g) break
-    MA.act.pred(g.type === 'atari' ? 'hit' : 'miss')
+
     if (S.likesLeft && (g.type === 'atari' || (['sagi', 'concafe'].includes(g.type) && extra < 2))) { if (g.type !== 'atari') extra++; MA.act.like() } else MA.act.pass()
     MA.dbg.step(400)
   }

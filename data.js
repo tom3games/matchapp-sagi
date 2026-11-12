@@ -14,10 +14,10 @@ const TYPES = {
 }
 const GIRLS = [
   {
-    id: 'a', full: true, type: 'atari', name: ['みのり', 'Minori'], age: 27, h: 156, body: ['普通', 'Average'], job: ['図書館司書', 'Librarian'], area: ['大阪', 'Osaka'], drink: ['ときどき', 'Sometimes'], smoke: ['吸わない', 'No'], likes: 23,
+    id: 'a', full: true, fastLine: ['返信はやいですね笑 ', 'Wow, fast reply lol. '], type: 'atari', name: ['みのり', 'Minori'], age: 27, h: 156, body: ['普通', 'Average'], job: ['図書館司書', 'Librarian'], area: ['大阪', 'Osaka'], drink: ['ときどき', 'Sometimes'], smoke: ['吸わない', 'No'], likes: 23,
     tags: [['パン屋めぐり', 'Bakeries'], ['散歩', 'Walks'], ['読書', 'Books'], ['自炊', 'Cooking']],
     intro: ['図書館で働いています。休みの日は近所の公園を散歩して、パン屋さんを開拓しています。人に撮ってもらった写真しかなくて、ちょっと変な顔です。まずはメッセージで話せたらうれしいです。', 'I work at a library. On days off I walk in the park and hunt for new bakeries. All my photos were taken by friends, so my face looks a bit goofy. Happy to chat first.'],
-    photos: ['a1', 'a2', 'a3'], meet: 'am', pat: 18,
+    photos: ['a1', 'a2', 'a3'], meet: 'am', spd: [6000, 9000], tooFast: 2500, pat: 90,
     place: ['土曜 12:00 駅の裏のパン屋の前', 'Sat 12:00, the bakery behind the station'],
     chat: [
       { her: ['マッチありがとうございます！みのりです。よろしくお願いします', 'Thanks for the match! I\'m Minori. Nice to meet you'], o: [
@@ -48,7 +48,7 @@ const GIRLS = [
     id: 'b', type: 'atari', name: ['さき', 'Saki'], age: 29, h: 160, body: ['普通', 'Average'], job: ['看護師', 'Nurse'], area: ['大阪', 'Osaka'], drink: ['飲む', 'Yes'], smoke: ['吸わない', 'No'], likes: 286, full: true,
     tags: [['ラーメン', 'Ramen'], ['海', 'The sea'], ['映画', 'Movies'], ['夜勤明け', 'Night shifts']],
     intro: ['看護師をしています。夜勤明けのラーメンが生きがいです。休みが不規則なので、返信がゆっくりな時があります。ごめんなさい。', 'I\'m a nurse. Ramen after a night shift keeps me alive. My days off are irregular, so sometimes I reply slowly. Sorry in advance.'],
-    photos: ['b1', 'b2', 'b3'], meet: 'bm', pat: 18,
+    photos: ['b1', 'b2', 'b3'], meet: 'bm', spd: [12000, 16000], pat: 90,
     place: ['月曜 12:30 味噌ラーメンの店の前', 'Mon 12:30, outside the miso ramen shop'],
     chat: [
       { her: ['はじめまして、さきです！ラーメン好きですか？', 'Hi, I\'m Saki! Do you like ramen?'], o: [
@@ -76,10 +76,10 @@ const GIRLS = [
     clues: [['目線の高さの自撮りと全身の写真。加工の跡がない', 'Eye-level selfie and a full-body shot, no filter'], ['いいね286でも、写真が素直なら当たりはいる', '286 likes, but honest photos can still mean a keeper'], ['返信が遅れる理由を先に書いていた', 'She explained her slow replies up front']],
   },
   {
-    id: 'c', full: true, type: 'atari', rare: true, name: ['なつ', 'Natsu'], age: 31, h: 163, body: ['普通', 'Average'], job: ['動物病院', 'Vet clinic'], area: ['兵庫', 'Hyogo'], drink: ['ときどき', 'Sometimes'], smoke: ['吸わない', 'No'], likes: 9,
+    id: 'c', full: true, fastLine: ['お、はやい…笑 ', 'Oh, that was quick... lol. '], type: 'atari', rare: true, name: ['なつ', 'Natsu'], age: 31, h: 163, body: ['普通', 'Average'], job: ['動物病院', 'Vet clinic'], area: ['兵庫', 'Hyogo'], drink: ['ときどき', 'Sometimes'], smoke: ['吸わない', 'No'], likes: 9,
     tags: [['犬', 'Dogs'], ['キャンプ', 'Camping'], ['焚き火', 'Campfires'], ['ラーメン', 'Ramen']],
     intro: ['動物病院で働いています。顔はほぼ犬に隠れてますが、2枚目が全身です（3枚目は犬だけです）。ゆっくり仲良くなれる人がいいです。', 'I work at a vet clinic. My face is mostly hidden by my dog, but photo 2 is full body (photo 3 is just the dog). Looking for someone to get to know slowly.'],
-    photos: ['c1', 'c2', 'c3'], meet: 'cm', pat: 18,
+    photos: ['c1', 'c2', 'c3'], meet: 'cm', spd: [7000, 10000], tooFast: 2500, pat: 90,
     place: ['土曜 9:00 川沿いの散歩道', 'Sat 9:00, the riverside path'],
     chat: [
       { her: ['マッチありがとうございます。犬の写真ばっかりですみません', 'Thanks for the match. Sorry it\'s all dog photos'], o: [
@@ -110,7 +110,7 @@ const GIRLS = [
     id: 'd', type: 'sagi', name: ['りな', 'Rina'], age: 26, h: 157, body: ['普通', 'Average'], job: ['アパレル販売', 'Apparel sales'], area: ['大阪', 'Osaka'], drink: ['飲む', 'Yes'], smoke: ['吸わない', 'No'], likes: 842,
     tags: [['カフェ', 'Cafes'], ['自撮り', 'Selfies'], ['ショッピング', 'Shopping'], ['韓国', 'K-culture']],
     intro: ['アパレルで働いてます。仲良くなったら写真ふやします。ノリがいい人すき。', 'I work in apparel. More photos once we\'re close. I like fun people.'],
-    photos: ['d1', 'd2', 'd3'], meet: 'dm', pat: 15,
+    photos: ['d1', 'd2', 'd3'], meet: 'dm', spd: [4000, 7000], pat: 90,
     place: ['金曜 20:00 駅の改札（暗めの居酒屋へ）', 'Fri 20:00, station gate (then a dim izakaya)'],
     chat: [
       { her: ['ありがと〜よろしく', 'thx~ hi'], o: [
@@ -136,7 +136,7 @@ const GIRLS = [
     id: 'e', type: 'park', name: ['まりあ', 'Maria'], age: 24, h: 152, body: ['普通', 'Average'], job: ['歯科助手', 'Dental assistant'], area: ['大阪', 'Osaka'], drink: ['ときどき', 'Sometimes'], smoke: ['ときどき', 'Sometimes'], likes: 156,
     tags: [['テーマパーク', 'Theme parks'], ['ぬいぐるみ', 'Plushies'], ['夜景', 'Night views'], ['年パス', 'Annual pass']],
     intro: ['夢の国が好きです。年パス持ってます。寂しがりなので、毎日連絡くれる人がいいな。ずっと一緒にいてくれる人を探してます。', 'I love the dream kingdom and have an annual pass. I get lonely, so I want someone who messages every day. Looking for someone who\'ll stay with me forever.'],
-    photos: ['e1', 'e2', 'e3'], meet: 'em', pat: 15,
+    photos: ['e1', 'e2', 'e3'], meet: 'em', spd: [1500, 2500], pat: 90,
     place: ['水曜 23:30 駅の出口（今から）', 'Wed 23:30, station exit (right now)'],
     chat: [
       { her: ['マッチうれしい！まりあです！毎日連絡できる人ですか？', 'So happy we matched! I\'m Maria! Can you message every day?'], o: [
@@ -162,7 +162,7 @@ const GIRLS = [
     id: 'f', type: 'heavy', name: ['ひより', 'Hiyori'], age: 28, h: 158, body: ['やや細め', 'Slim'], job: ['事務', 'Office clerk'], area: ['京都', 'Kyoto'], drink: ['飲まない', 'No'], smoke: ['吸わない', 'No'], likes: 98,
     tags: [['カフェ', 'Cafes'], ['読書', 'Books'], ['結婚', 'Marriage'], ['誠実', 'Sincerity']],
     intro: ['本気で結婚相手を探しています。遊び目的の方、既婚者の方はすぐブロックします。過去に傷ついたことがあるので、誠実な人がいいです。カフェで本を読むのが好きです。', 'I\'m seriously looking for a husband. Players and married men will be blocked. I\'ve been hurt before, so I need someone sincere. I like reading in cafes.'],
-    photos: ['f1', 'f2', 'f3'], meet: 'fm', pat: 15,
+    photos: ['f1', 'f2', 'f3'], meet: 'fm', spd: [1500, 2500], pat: 90,
     place: ['日曜 14:00 静かなカフェ', 'Sun 14:00, a quiet cafe'],
     chat: [
       { her: ['はじめまして。いきなりですが、結婚願望ありますか？', 'Hello. Straight to the point: do you want to get married?'], o: [
@@ -188,7 +188,7 @@ const GIRLS = [
     id: 'g', type: 'baka', name: ['きらら', 'Kirara'], age: 25, h: 155, body: ['普通', 'Average'], job: ['フリーター', 'Part-timer'], area: ['大阪', 'Osaka'], drink: ['めっちゃ飲む', 'A lot'], smoke: ['ときどき', 'Sometimes'], likes: 210,
     tags: [['飲み', 'Drinking'], ['カラオケ', 'Karaoke'], ['ノリ', 'Vibes'], ['パフェ', 'Parfaits']],
     intro: ['よろしくでーす！のりで生きてます笑 趣味わ飲み。飲み友ぼしゅーしてます', 'heyyy! living on vibes lol. hobbie is drinking. looking for drinkin buddies'],
-    photos: ['g1', 'g2', 'g3'], meet: 'gm', pat: 15,
+    photos: ['g1', 'g2', 'g3'], meet: 'gm', spd: [5000, 12000], pat: 90,
     place: ['土曜 19:00 どこかの駅（当日きめる）', 'Sat 19:00, some station (TBD on the day)'],
     chat: [
       { her: ['やほー！どこ住み？', 'yo! where u live?'], o: [
@@ -214,7 +214,7 @@ const GIRLS = [
     id: 'h', type: 'kireru', name: ['あやね', 'Ayane'], age: 27, h: 162, body: ['やや細め', 'Slim'], job: ['美容部員', 'Beauty counter'], area: ['大阪', 'Osaka'], drink: ['飲む', 'Yes'], smoke: ['吸わない', 'No'], likes: 330,
     tags: [['コスメ', 'Cosmetics'], ['ネイル', 'Nails'], ['韓国ドラマ', 'K-dramas'], ['カフェ', 'Cafes']],
     intro: ['美容部員です。既読無視する人、返信遅い人はムリです。マメな人がいいです。マスク外すのは会ってから。', 'Beauty counter staff. People who leave me on read or reply slowly: no. I want someone attentive. Mask comes off when we meet.'],
-    photos: ['h1', 'h2', 'h3'], meet: 'hm', pat: 6, angry: true,
+    photos: ['h1', 'h2', 'h3'], meet: 'hm', spd: [8000, 12000], pat: 10, angry: true,
     place: ['明日 18:00 ちょうど 駅前の広場', 'Tomorrow 18:00 sharp, station square'],
     chat: [
       { her: ['よろしく。返信はやい人？', 'Hi. Do you reply fast?'], o: [
@@ -241,7 +241,7 @@ const GIRLS = [
     id: 'i', type: 'choro', name: ['みゆ', 'Miyu'], age: 25, h: 154, body: ['普通', 'Average'], job: ['受付', 'Receptionist'], area: ['大阪', 'Osaka'], drink: ['飲む', 'Yes'], smoke: ['吸わない', 'No'], likes: 1180,
     tags: [['カフェ', 'Cafes'], ['写真', 'Photos'], ['美容', 'Beauty'], ['夜ふかし', 'Night owl']],
     intro: ['たくさんのいいねありがとうございます！褒めてくれる人すき。ノリで会えます', 'Thanks for all the likes!! I love people who compliment me. Down to meet on a whim'],
-    photos: ['i1', 'i2', 'i3'], meet: 'im', pat: 15,
+    photos: ['i1', 'i2', 'i3'], meet: 'im', spd: [1200, 2000], pat: 90,
     place: ['今夜 20:00 駅前のカフェ', 'Tonight 20:00, cafe by the station'],
     chat: [
       { her: ['マッチありがと〜！', 'thanks for the match~!'], o: [
@@ -267,7 +267,7 @@ const GIRLS = [
     id: 'j', type: 'gyosha', name: ['えりか', 'Erika'], age: 29, h: 165, body: ['スリム', 'Slender'], job: ['経営者・自由業', 'Self-employed'], area: ['東京・大阪', 'Tokyo / Osaka'], drink: ['ときどき', 'Sometimes'], smoke: ['吸わない', 'No'], likes: 2460,
     tags: [['投資', 'Investing'], ['自己成長', 'Self-growth'], ['海外旅行', 'Travel'], ['ラウンジ', 'Lounges']],
     intro: ['自由な働き方をしています。お金の勉強をしていて、人生を変えたい人と出会いたいです。前向きな人が好き。', 'I work freely. I study money, and want to meet people who want to change their lives. I like positive people.'],
-    photos: ['j1', 'j2', 'j3'], meet: 'jm', pat: 15,
+    photos: ['j1', 'j2', 'j3'], meet: 'jm', spd: [1200, 2000], pat: 90,
     place: ['日曜 15:00 駅前のチェーンのカフェ', 'Sun 15:00, chain cafe by the station'],
     chat: [
       { her: ['はじめまして！えりかです。お仕事は何されてるんですか？', 'Hi! I\'m Erika. What do you do for work?'], o: [
@@ -293,7 +293,7 @@ const GIRLS = [
     id: 'k', full: true, type: 'concafe', name: ['ここな', 'Kokona'], age: 24, h: 156, body: ['普通', 'Average'], job: ['接客業', 'Hospitality'], area: ['大阪', 'Osaka'], drink: ['飲む', 'Yes'], smoke: ['吸わない', 'No'], likes: 640,
     tags: [['話すの好き', 'Love talking'], ['甘いもの', 'Sweets'], ['アニメ', 'Anime'], ['夜型', 'Night owl']],
     intro: ['接客の仕事をしてます（夜はほぼ働いてます）。人と話すのが大好き！どんな話でも楽しめるタイプです。会うなら、わたしの好きな場所がいいな', 'I work in hospitality (mostly nights). I love talking to people and enjoy any topic! If we meet, I\'d like it to be at my favorite place'],
-    photos: ['k1', 'k2', 'k3'], meet: 'km', pat: 15,
+    photos: ['k1', 'k2', 'k3'], meet: 'km', spd: [1500, 2500], pat: 90,
     place: ['土曜 19:00 駅から3分のお店（場所は向こうが指定）', 'Sat 19:00, a place 3 min from the station (her pick)'],
     chat: [
       { her: ['マッチうれしい〜！ここなです！なんでいいねしてくれたの？', 'Yay a match~! I\'m Kokona! Why did you like me?'], o: [
@@ -320,7 +320,7 @@ const GIRLS = [
     id: 'l', type: 'mukashi', name: ['ゆか', 'Yuka'], age: 30, h: 158, body: ['普通', 'Average'], job: ['営業事務', 'Sales admin'], area: ['大阪', 'Osaka'], drink: ['飲む', 'Yes'], smoke: ['吸わない', 'No'], likes: 410,
     tags: [['タピオカ', 'Bubble tea'], ['海', 'The sea'], ['カフェ', 'Cafes'], ['韓国コスメ', 'K-beauty']],
     intro: ['営業事務をしてます。写真は最近のです（ほぼ変わってないです笑）。カフェ巡りとタピオカが好き。写真より実物の方がいいってよく言われます', 'I do sales admin. These photos are recent (I basically haven\'t changed lol). I love cafe hopping and bubble tea. People say I look better in person'],
-    photos: ['l1', 'l2', 'l3'], meet: 'lm', pat: 15,
+    photos: ['l1', 'l2', 'l3'], meet: 'lm', spd: [5000, 8000], pat: 90,
     place: ['金曜 19:30 駅の東口', 'Fri 19:30, station east exit'],
     chat: [
       { her: ['マッチありがとう！ゆかです〜', 'Thanks for the match! I\'m Yuka~'], o: [
@@ -353,7 +353,7 @@ const T = {
     predFirst: '先に当たり外れをハンコで予想',
     noLikes: 'いいねを使い切った。残りは予想だけ',
     battDead: '電池が切れた',
-    matched: 'マッチしました', toChat: 'トークへ', noMatch: '誰ともマッチしていない',
+    matched: 'マッチしました', toChat: 'トークへ', chatH: 'トーク', chatSub: n => `${n}人とやり取り中`, waitHint: '返事を待っています', mineHint: '返事をする', noMatch: '誰ともマッチしていない',
     typing: '入力中', read: '既読', timeoutQ: '？', left: 'マッチが解除されました',
     meetQ: n => `${n}と会う？`, meetYes: '会う', meetNo: '会わない', declined: 'お誘いは無かった',
     meetHead: '待ち合わせ', photoWas: 'プロフの写真', realWas: '来た人', next: '次へ',
@@ -363,11 +363,11 @@ const T = {
     ranks: ['今夜も独り', '見る目が育ち中', 'まあまあ慎重', '写真を疑える人', 'マチアプの探偵'],
     yourPred: '予想', none: 'なし', save: '画像を保存', post: 'Xでポスト', again: 'もう一回', toTitle: 'タイトルへ',
     clueHead: '答え合わせ', close: '閉じる',
-    tut: ['写真は左右をタップで切り替え', '拡大で手首や背景を確かめる', '当たりか外れかをハンコで予想', 'いいねは4回まで'],
+    tut: ['写真は左右をタップで切り替え', '拡大で手首や背景を確かめる', 'いいねは4回まで。当たりだけに使う'],
     howH: '遊び方',
     howBody: [
-      '女の子は11人。写真とプロフを見て、当たりか外れかをハンコで予想する（当たれば5点）。',
-      'いいねは4回まで。いいねした子とはトークできる。返事は3択。待たせすぎると相手が冷める。',
+      '女の子は11人。写真とプロフを見て、当たりだと思う子にいいね、外れだと思う子は見送る。',
+      'いいねは4回まで。いいねした子とは同時にトークできる。返事は3択。相手の返事はすぐには来ない。待たせすぎると冷める子も、早すぎる返信に引く子もいる。',
       '最後に、会うか会わないかを決める。当たりに会えたら40点、外れに会うと20点引く。外れを会う前に見抜いて断ると15点。当たりの子とは2回目のデートがある。うまくいけば30点。雑に扱うと切られる。',
       '電池が切れたら、見ていない子は見送りになる。写真は盛ってある。手首・背景・撮った角度・全身の有無を見る。',
     ],
@@ -384,7 +384,7 @@ const T = {
     predFirst: 'Stamp your guess first',
     noLikes: 'Out of likes. Just guess the rest',
     battDead: 'Battery died',
-    matched: 'It\'s a match', toChat: 'Chats', noMatch: 'No matches',
+    matched: 'It\'s a match', toChat: 'Chats', chatH: 'Chats', chatSub: n => `talking to ${n}`, waitHint: 'Waiting for her reply', mineHint: 'Your turn', noMatch: 'No matches',
     typing: 'typing', read: 'Read', timeoutQ: '?', left: 'She unmatched you',
     meetQ: n => `Meet ${n}?`, meetYes: 'Meet', meetNo: 'Skip', declined: 'No invite came',
     meetHead: 'Meeting', photoWas: 'Profile photo', realWas: 'Who showed up', next: 'Next',
@@ -394,11 +394,11 @@ const T = {
     ranks: ['Alone again', 'Learning to look', 'Fairly careful', 'Photo skeptic', 'Dating app detective'],
     yourPred: 'Guess', none: 'none', save: 'Save image', post: 'Post on X', again: 'Again', toTitle: 'Title',
     clueHead: 'The tells', close: 'Close',
-    tut: ['Tap left/right to flip photos', 'Zoom in on wrists and backgrounds', 'Stamp your guess: keeper or nope', 'Only 4 likes'],
+    tut: ['Tap left/right to flip photos', 'Zoom in on wrists and backgrounds', 'Only 4 likes. Spend them on keepers'],
     howH: 'How to play',
     howBody: [
-      'Eleven women. Study photos and profile, then stamp your guess: keeper or nope (+5 if right).',
-      'Only 4 likes. You can chat with the ones you like. Replies are 3-choice. Make her wait too long and she cools off.',
+      'Eleven women. Study the photos and profile. Like the keepers, pass on the duds.',
+      'Only 4 likes. Chat with all your matches at once. Replies are 3-choice. Her replies take time. Some cool off if you are slow, some get spooked if you are too fast.',
       'Finally, decide whether to meet. Meeting a keeper: +40. Meeting a dud: -20. Spotting a dud and skipping: +15. Keepers get a second date: +30 if it goes well. Treat her carelessly and she\'s gone.',
       'When the battery dies, unseen profiles are passed. Photos are edited. Check wrists, backgrounds, camera angle, and full-body shots.',
     ],

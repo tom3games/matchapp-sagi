@@ -7,3 +7,7 @@ art/logs/
 shots/
 dbg.mjs
 img/*_v1.webp
+art/raw_photo/
+art/prompts_photo/
+art/style_ref.png
+img/style.webp

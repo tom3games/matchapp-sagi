@@ -2,7 +2,7 @@
 window.__jsUp = true
 ;(function () {
   const $ = s => document.querySelector(s)
-  const LIKES = 4, BATT_MS = 264000, MEET_WAIT = 20000, D2_WAIT = 15000
+  const LIKES = 4, MEET_WAIT = 60000, D2_WAIT = 60000, GAP = 4000, MAX_UNREAD = 3
   // ---- 言語
   let lang = 'ja'
   try { lang = localStorage.getItem('ms_lang') || ((navigator.language || 'ja').startsWith('ja') ? 'ja' : 'en') } catch (e) {}
@@ -41,7 +41,7 @@ window.__jsUp = true
   Snd.setMute(muted)
   document.addEventListener('pointerdown', () => { Snd.init() }, true)
   // ---- 画像
-  const img = k => 'img/' + k + '.webp?v=1'
+  const img = k => 'img/' + k + '.webp?v=2'
   const cache = {}
   function preload(keys, onEach) { return Promise.all(keys.map(k => new Promise(ok => { if (cache[k] && cache[k].complete) { onEach && onEach(); return ok() } const im = cache[k] = cache[k] || new Image(); im.onload = im.onerror = () => { onEach && onEach(); ok() }; im.src = img(k) }))) }
   // ---- 状態
@@ -56,7 +56,7 @@ window.__jsUp = true
     const perm = {}
     for (const g of list) perm[g.id] = g.chat.map(() => { const a = [0, 1, 2]; for (let i = 2; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [a[i], a[j]] = [a[j], a[i]] } return a })
     const perm2 = {}; for (const g of list) if (g.date2) { const a = [0, 1, 2]; for (let i = 2; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [a[i], a[j]] = [a[j], a[i]] } perm2[g.id] = a }
-    S = { seed, rare, perm2, d2: {}, order: list, idx: 0, likesLeft: LIKES, battT: 0, phase: 'swipe', pred: {}, dec: {}, liked: [], chats: [], ci: 0, mi: 0, met: [], loupeN: 0, perm, tut: false, photo: 0, sheet: false, done: false }
+    S = { seed, rare, perm2, rngT: rngOf((seed || 1) * 7 + 3), d2: {}, order: list, idx: 0, likesLeft: LIKES, battT: 0, phase: 'swipe', pred: {}, dec: {}, liked: [], chats: [], ci: 0, mi: 0, met: [], loupeN: 0, perm, tut: false, photo: 0, sheet: false, done: false }
   }
   // ---- 画面切り替え
   const VIEWS = ['vTitle', 'vSwipe', 'vMatch', 'vChat', 'vMeet', 'vEnd']
@@ -69,9 +69,8 @@ window.__jsUp = true
     $('#tKick').textContent = lang === 'ja' ? '盛りを見抜く' : 'Spot the edits'
     $('#tSub').textContent = t.sub; $('#bStart').textContent = t.start; $('#bHow').textContent = t.how
     $('#bLang').textContent = lang === 'ja' ? 'EN' : 'JA'
-    $('#bHit span').textContent = t.predHit; $('#bMiss span').textContent = t.predMiss; $('#bLoupe').textContent = t.loupe
+    $('#bLoupe').textContent = t.loupe
     $('#bPass').textContent = t.pass; $('#bLike').textContent = t.like
-    $('#bHit b').textContent = lang === 'ja' ? '当' : '◯'; $('#bMiss b').textContent = lang === 'ja' ? '外' : '×'
     const ldt = $('#ldText'); if (ldt) ldt.textContent = t.loading
     $('#howH').textContent = t.howH; $('#howBody').innerHTML = t.howBody.map(s => '<p>' + s + '</p>').join(''); $('#howClose').textContent = t.close; $('#howCredit').textContent = t.credit
     $('#bSave').textContent = t.save; $('#bPost').textContent = t.post; $('#bAgain').textContent = t.again; $('#bTitle').textContent = t.toTitle
@@ -84,21 +83,15 @@ window.__jsUp = true
   // ================= スワイプ =================
   const cur = () => S.order[S.idx]
   function hud() {
-    const t = L(), b = Math.max(0, Math.ceil(battLeft()))
-    $('#battN').textContent = b + '%'; $('#battI').style.width = b + '%'; $('#batt').classList.toggle('low', b <= 20)
+    const t = L()
     const ll = $('#likesLeft'); ll.textContent = t.likesLeft(S.likesLeft); ll.classList.toggle('zero', !S.likesLeft)
-    const m = 41 + Math.floor((BATT_MS * (1 - b / 100)) / 12000); $('#clock').textContent = m < 60 ? `23:${String(m).padStart(2, '0')}` : `0:${String(m - 60).padStart(2, '0')}`
+    const m = 41 + S.idx * 2; $('#clock').textContent = `23:${String(m).padStart(2, '0')}`
     $('#bLike').disabled = !S.likesLeft
-    const g = cur(); const p = g && S.pred[g.id]
-    $('#bHit').classList.toggle('on', p === 'hit'); $('#bMiss').classList.toggle('on', p === 'miss')
   }
-  function battLeft() { return 100 - (S.battT / BATT_MS) * 100 }
   function cardHTML(g, top) {
     const t = L(), ph = top ? S.photo : 0
     const bars = g.photos.map((_, i) => `<i class="${i === ph ? 'on' : ''}"></i>`).join('')
-    const p = top && S.pred[g.id]
     return `<div class="photo"><img class="ph" src="${img(g.photos[ph])}" alt=""><div class="bars">${bars}</div><span class="likesN">${t.lbl.likes} ${g.likes.toLocaleString()}</span>
-      ${p ? `<div class="stampMark ${p}">${p === 'hit' ? (lang === 'ja' ? '当' : '◯') : (lang === 'ja' ? '外' : '×')}</div>` : ''}
       <div class="decide l">${t.like}</div><div class="decide p">${t.pass}</div>
       <div class="nameBox"><b>${tx(g.name)}<small>${t.profAge(g.age, g.h)}</small></b><span>${tx(g.job)} / ${tx(g.area)} / ${t.lbl.body} ${tx(g.body)}</span></div></div>
       <div class="info"><div class="tags">${g.tags.map(x => '<i>' + tx(x) + '</i>').join('')}</div><button class="intro" data-sheet>${tx(g.intro)}</button></div>
@@ -180,7 +173,7 @@ window.__jsUp = true
     sfx('swipe')
     const c = $('#topCard'); c.style.transform = ''; c.classList.remove('dragging'); c.classList.add(kind === 'like' ? 'outR' : 'outL')
     setLoupe(false); S.busy = true
-    after(300, () => { S.busy = false; S.idx++; S.photo = 0; S.sheet = false; if (S.idx >= S.order.length) endSwipe(); else { renderCards(); hud(); if (!S.likesLeft && kind === 'like') toast(L().noLikes) } })
+    after(300, () => { S.busy = false; S.idx++; S.photo = 0; S.sheet = false; if (S.idx >= S.order.length || !S.likesLeft) endSwipe(); else { renderCards(); hud() } })
   }
   let toastT = null
   function toast(s) { const t = $('#toast'); t.textContent = s; t.classList.add('on'); cancel(toastT); toastT = after(1800, () => t.classList.remove('on')) }
@@ -189,7 +182,7 @@ window.__jsUp = true
     let seen = false; try { seen = localStorage.getItem('ms_tut') === '1' } catch (e) {}
     if (seen) return
     S.tut = true
-    const tips = L().tut, tg = ['#topCard .photo', '#bLoupe', '.predRow', '#bLike']
+    const tips = L().tut, tg = ['#topCard .photo', '#bLoupe', '#bLike']
     let i = 0
     const step = () => {
       document.querySelectorAll('.hl').forEach(e => e.classList.remove('hl'))
@@ -213,100 +206,183 @@ window.__jsUp = true
     if (S.phase !== 'swipe') return
     S.phase = 'match'; setLoupe(false); $('#tip').hidden = true
     for (const g of S.order) if (!S.dec[g.id]) S.dec[g.id] = 'none'
-    S.chats = S.liked.map(id => ({ g: GIRLS.find(x => x.id === id), good: 0, r: 0, ch: [], left: false, offered: false, meet: null, timeouts: 0 }))
+    S.chats = S.liked.map(id => ({ g: GIRLS.find(x => x.id === id), good: 0, r: 0, ch: [], log: [], unread: 0, rushed: 0, state: 'wait', patLen: 0, left: false, offered: false, meet: null, timeouts: 0 }))
     if (!S.chats.length) { finish(); return }
     show('vMatch'); const t = L()
-    $('#mH').textContent = battLeft() <= 0 ? t.battDead : t.matched
+    $('#mH').textContent = t.matched
     $('#mFaces').innerHTML = S.chats.map((c, i) => `<img src="${img(c.g.photos[0])}" style="animation-delay:${i * 0.12}s" alt="">`).join('')
-    $('#mP').textContent = battLeft() <= 0 ? t.matched : ''
+    $('#mP').textContent = ''
     sfx('match')
     S.mT = after(3200, toChat)
   }
-  function toChat() { if (S.phase !== 'match') return; cancel(S.mT); S.phase = 'chat'; S.ci = 0; show('vChat'); openChat() }
-  // ================= トーク =================
-  let patT = null, patStart = 0, patLen = 0
-  const C = () => S.chats[S.ci]
-  function bubble(cls, html) { const d = document.createElement('div'); d.className = 'msg ' + cls; d.innerHTML = html; $('#msgs').appendChild(d); const m = $('#msgs'); while (m.children.length > 14) m.removeChild(m.firstChild); return d }
+  function toChat() {
+    if (S.phase !== 'match') return; cancel(S.mT); S.phase = 'chat'; S.open = -1; show('vChat')
+    const t = L(); $('#lH').textContent = t.chatH; $('#lSub').textContent = t.chatSub(S.chats.length)
+    $('#room').classList.remove('on')
+    // 最初の1通は、子ごとの返信の速さで届く
+    S.chats.forEach(c => herSend(c, tx(c.g.chat[0].her), () => myTurn(c)))
+    renderList()
+  }
+  // ================= トーク（同時進行） =================
+  // 状態: wait（相手の返事待ち）/ mine（こちらの番）/ offer（会うかの返事待ち）/ done
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
-  function openChat() {
-    const c = C(), g = c.g, t = L()
-    $('#cAv').src = img(g.photos[0]); $('#msgs').style.setProperty('--av', `url("${img(g.photos[0])}")`); $('#cName').textContent = tx(g.name); $('#cSub').textContent = `${g.age} / ${tx(g.job)}`
-    $('#cProg').textContent = `${S.ci + 1}/${S.chats.length}`
-    $('#msgs').innerHTML = ''; $('#opts').innerHTML = ''; stopPat()
-    after(500, () => herSay(tx(g.chat[0].her), () => showOpts()))
+  const spd = c => { const [a, b] = c.g.spd; return a + Math.floor(S.rngT() * (b - a)) }
+  const idxOf = c => S.chats.indexOf(c)
+  function herSend(c, text, then, d) {
+    c.state = 'wait'; c.typing = false
+    const ms = d == null ? spd(c) : d
+    const at = Math.max(G.t + ms, (S.lastDue || 0) + GAP); S.lastDue = at
+    cancel(c.tyT); c.tyT = after(Math.max(0, at - G.t - 1500), () => { c.typing = true; refresh(c) })
+    const arrive = () => {
+      if (S.phase !== 'chat') return
+      // 一度に未読が増えすぎないよう、ほかの子の未読が多い間は少し待たせる
+      const unread = S.chats.reduce((a, x) => a + (x === c ? 0 : x.unread), 0)
+      if (S.open !== idxOf(c) && unread >= MAX_UNREAD) { c.dueT = after(3000, arrive); return }
+      c.typing = false
+      push(c, 'her', text)
+      then && then()
+    }
+    cancel(c.dueT); c.dueT = after(at - G.t, arrive)
   }
-  const delay = g => (g.likes >= 500 ? 2200 : 1100)
-  function herSay(s, then) {
-    const c = C(), ty = bubble('her typing', '<i></i><i></i><i></i>'), mine = S.ci
-    after(delay(c.g), () => { if (S.ci !== mine || S.phase !== 'chat') return; ty.remove(); bubble('her', esc(s)); sfx('notif', { vol: 0.6 }); then && then() })
+  function push(c, who, text) {
+    c.log.push({ who, text }); if (c.log.length > 30) c.log.shift()
+    c.last = G.t
+    if (who === 'her') {
+      c.arrivedAt = G.t
+      if (S.open !== idxOf(c)) { c.unread++; banner(c, text) }
+      sfx('notif', { vol: 0.6 })
+    }
+    refresh(c)
   }
-  function showOpts() {
-    const c = C(), g = c.g, rd = g.chat[c.r], t = L()
-    const ord = S.perm[g.id][c.r]
-    $('#opts').innerHTML = ord.map(k => `<button data-k="${k}">${esc(tx(rd.o[k].t))}</button>`).join('')
-    $('#opts').querySelectorAll('button').forEach(b => b.onclick = () => choose(+b.dataset.k))
-    startPat(g.pat * 1000, timeout)
+  function myTurn(c) {
+    c.state = 'mine'; c.myT0 = G.t; c.patLen = c.g.pat * 1000
+    cancel(c.patT); c.patT = after(c.patLen, () => timeoutC(c))
+    refresh(c)
   }
-  function startPat(ms, fn) { stopPat(); patStart = G.t; patLen = ms; patT = after(ms, fn) }
-  function stopPat() { cancel(patT); patT = null; patLen = 0 }
   function choose(k) {
-    if (S.phase !== 'chat' || !patT) return
-    stopPat()
-    const c = C(), g = c.g, o = g.chat[c.r].o[k]
+    const c = S.chats[S.open]
+    if (S.phase !== 'chat' || !c || c.state !== 'mine') return
+    cancel(c.patT); c.patLen = 0
+    const g = c.g, o = g.chat[c.r].o[k]
+    let rushed = false
+    if (g.tooFast && G.t - c.arrivedAt < g.tooFast) { c.rushed++; rushed = true }
     c.ch.push(k); if (o.g > 0) c.good++
-    $('#opts').innerHTML = ''
-    bubble('me', esc(tx(o.t))); sfx('reply', { vol: 0.5 })
-    herSay(tx(o.r), () => {
-      if (o.flag === 'instant') { c.instant = true; return after(700, offer) }
+    push(c, 'me', tx(o.t)); sfx('reply', { vol: 0.5 })
+    const pre = rushed && c.rushed === 1 && g.fastLine ? tx(g.fastLine) : ''
+    herSend(c, pre + tx(o.r), () => {
+      if (o.flag === 'instant') { c.instant = true; return offer(c) }
       c.r++
-      if (c.r >= g.chat.length) after(700, wrapUp)
-      else after(700, () => herSay(tx(g.chat[c.r].her), showOpts))
+      if (c.r >= g.chat.length) after(900, () => wrapUp(c))
+      else herSend(c, tx(g.chat[c.r].her), () => myTurn(c), 1800)
     })
   }
-  function timeout() {
-    const c = C(), g = c.g; patT = null; c.timeouts++; c.ch.push(-1)
-    $('#opts').innerHTML = ''
+  function timeoutC(c) {
+    if (S.phase !== 'chat' || c.state !== 'mine') return
+    const g = c.g; c.patLen = 0; c.timeouts++; c.ch.push(-1)
     if (g.angry) {
-      bubble('her', esc(tx(g.timeout))); sfx('angry')
-      after(900, () => { bubble('sys', L().left); c.left = true; after(1800, nextChat) })
+      push(c, 'her', tx(g.timeout)); sfx('angry')
+      after(900, () => { push(c, 'sys', L().left); c.left = true; done(c) })
       return
     }
-    bubble('her', esc(L().timeoutQ)); sfx('notif', { vol: 0.5 })
+    push(c, 'her', L().timeoutQ)
     c.r++
-    if (c.r >= g.chat.length) after(900, wrapUp)
-    else after(900, () => herSay(tx(g.chat[c.r].her), showOpts))
+    if (c.r >= g.chat.length) after(900, () => wrapUp(c))
+    else herSend(c, tx(g.chat[c.r].her), () => myTurn(c))
   }
-  function wrapUp() {
-    const c = C(), g = c.g
+  function wrapUp(c) {
+    const g = c.g
     if (g.type === 'atari') {
       const lastK = c.ch[2], ok = lastK >= 0 && g.chat[2].o[lastK].g > 0
-      if (!(ok && c.good >= 2)) { bubble('sys', L().declined); return after(1800, nextChat) }
+      if (!(ok && c.good - c.rushed >= 2)) { push(c, 'sys', L().declined); return done(c) }
     }
-    offer()
+    offer(c)
   }
-  function offer() {
-    const c = C(), g = c.g, t = L()
-    c.offered = true
-    bubble('place', esc(t.meetHead + '  ' + tx(g.place)))
-    $('#opts').innerHTML = `<div class="sys" style="font:700 14px var(--sans);text-align:center;margin-top:4px">${esc(t.meetQ(tx(g.name)))}</div><div class="meet"><button class="no">${t.meetNo}</button><button class="yes">${t.meetYes}</button></div>`
-    $('#opts .yes').onclick = () => meetChoice(true); $('#opts .no').onclick = () => meetChoice(false)
-    startPat(MEET_WAIT, () => meetChoice(null))
+  function offer(c) {
+    const t = L()
+    c.offered = true; c.state = 'offer'
+    push(c, 'place', t.meetHead + '  ' + tx(c.g.place))
+    c.myT0 = G.t; c.patLen = MEET_WAIT
+    cancel(c.patT); c.patT = after(MEET_WAIT, () => decideMeet(c, null))
+    refresh(c)
   }
-  function meetChoice(v) {
-    if (S.phase !== 'chat') return
-    const c = C(); if (c.meet !== null || c.decided) return
-    stopPat(); c.decided = true; c.meet = v
-    $('#opts').innerHTML = ''
+  function meetChoice(v) { const c = S.chats[S.open]; if (c) decideMeet(c, v) }
+  function decideMeet(c, v) {
+    if (S.phase !== 'chat' || c.state !== 'offer') return
+    cancel(c.patT); c.patLen = 0; c.decided = true; c.meet = v
     sfx('tap')
     if (v) S.met.push(c.g.id)
-    after(600, nextChat)
+    done(c)
   }
-  function nextChat() {
+  function done(c) {
+    c.state = 'done'; refresh(c)
+    if (S.chats.every(x => x.state === 'done')) after(1500, () => { if (S.phase !== 'chat') return; if (S.met.length) startMeets(); else finish() })
+  }
+  // ---- 描画
+  function refresh(c) { renderList(); if (S.open === idxOf(c)) renderRoom() }
+  function renderList() {
     if (S.phase !== 'chat') return
-    S.ci++
-    if (S.ci >= S.chats.length) { stopPat(); if (S.met.length) startMeets(); else finish(); return }
-    openChat()
+    const t = L()
+    const order = S.chats.map((c, i) => i).sort((a, b) => (S.chats[b].last || 0) - (S.chats[a].last || 0))
+    $('#clist').innerHTML = order.map(i => {
+      const c = S.chats[i], lastMsg = [...c.log].reverse().find(m => m.who !== 'sys') || { text: '' }
+      const pv = c.typing ? t.typing + '…' : lastMsg.text
+      return `<button class="crow${c.state === 'done' ? ' done' : ''}" data-i="${i}"><img src="${img(c.g.photos[0])}" alt=""><div class="mid"><b>${esc(tx(c.g.name))}</b><span class="${c.typing ? 'ty' : ''}">${esc(pv)}</span></div><div class="side">${c.unread ? `<span class="badge">${c.unread}</span>` : ''}</div>${c.patLen ? '<i class="wait"></i>' : ''}</button>`
+    }).join('')
+    $('#clist').querySelectorAll('.crow').forEach(b => b.onclick = () => openRoom(+b.dataset.i))
+    bars()
   }
+  function openRoom(i) {
+    S.open = i; const c = S.chats[i], g = c.g
+    c.unread = 0
+    $('#cAv').src = img(g.photos[0]); $('#msgs').style.setProperty('--av', `url("${img(g.photos[0])}")`); $('#cName').textContent = tx(g.name); $('#cSub').textContent = `${g.age} / ${tx(g.job)}`
+    $('#room').classList.add('on'); sfx('tap')
+    renderRoom(); renderList()
+  }
+  function closeRoom() { S.open = -1; $('#room').classList.remove('on'); renderList() }
+  function renderRoom() {
+    const c = S.chats[S.open]; if (!c) return
+    const t = L(), g = c.g
+    c.unread = 0
+    const tot = S.chats.reduce((a, x) => a + x.unread, 0); $('#rBadge').textContent = tot || ''
+    $('#msgs').innerHTML = c.log.slice(-14).map(m => `<div class="msg ${m.who}">${esc(m.text)}</div>`).join('') + (c.typing ? '<div class="msg her typing"><i></i><i></i><i></i></div>' : '')
+    const op = $('#opts')
+    if (c.state === 'mine') {
+      op.innerHTML = S.perm[g.id][c.r].map(k => `<button data-k="${k}">${esc(tx(g.chat[c.r].o[k].t))}</button>`).join('')
+      op.querySelectorAll('button').forEach(b => b.onclick = () => choose(+b.dataset.k))
+    } else if (c.state === 'offer') {
+      op.innerHTML = `<div class="sys" style="font:700 14px var(--sans);text-align:center;margin-top:4px">${esc(t.meetQ(tx(g.name)))}</div><div class="meet"><button class="no">${t.meetNo}</button><button class="yes">${t.meetYes}</button></div>`
+      op.querySelector('.yes').onclick = () => meetChoice(true); op.querySelector('.no').onclick = () => meetChoice(false)
+    } else op.innerHTML = c.state === 'wait' ? `<div class="hint">${t.waitHint}</div>` : ''
+    bars()
+  }
+  function bars() {
+    if (!S || S.phase !== 'chat') return
+    S.chats.forEach((c, i) => {
+      const k = c.patLen ? Math.max(0, 1 - (G.t - c.myT0) / c.patLen) : 0
+      const el = document.querySelector(`.crow[data-i="${i}"] .wait`); if (el) { el.style.width = '100%'; el.style.transform = `scaleX(${k})`; el.classList.toggle('hot', k < 0.35) }
+      if (S.open === i) { const p = $('#pat'); p.firstChild.style.transform = `scaleX(${k})`; p.classList.toggle('hot', k < 0.35) }
+    })
+    if (S.open < 0) $('#pat i').style.transform = 'scaleX(0)'
+  }
+  let banT = null
+  function banner(c, text) {
+    const b = $('#banner'); b.querySelector('img').src = img(c.g.photos[0]); b.querySelector('b').textContent = tx(c.g.name); b.querySelector('span').textContent = text
+    b.classList.add('on'); b.onclick = () => { b.classList.remove('on'); openRoom(idxOf(c)) }
+    cancel(banT); banT = after(2200, () => b.classList.remove('on'))
+  }
+  function stopPat() {}
+  // トーク中にプロフを見返す（開いている間は時計を止める）
+  function openProf() {
+    const c = S.chats[S.open]; if (!c) return
+    const g = c.g, t = L(), l = t.lbl; S.profPh = 0; S.hold = true
+    const draw = () => { $('#profImg').src = img(g.photos[S.profPh]); $('#profBars').innerHTML = g.photos.map((_, i) => `<i class="${i === S.profPh ? 'on' : ''}"></i>`).join('') }
+    draw()
+    $('#profImg').onclick = e => { const r = e.target.getBoundingClientRect(); S.profPh = (S.profPh + (e.clientX - r.left < r.width / 2 ? -1 : 1) + g.photos.length) % g.photos.length; draw() }
+    $('#profInfo').innerHTML = `<b>${esc(tx(g.name))} ${t.profAge(g.age, g.h)}</b>${esc(tx(g.job))} / ${esc(tx(g.area))} / ${l.body} ${esc(tx(g.body))} / ${l.likes} ${g.likes.toLocaleString()}<div>${esc(tx(g.intro))}</div>`
+    $('#profClose').textContent = t.close
+    $('#prof').hidden = false; sfx('tap')
+  }
+  function closeProf() { $('#prof').hidden = true; S.hold = false; last = performance.now() }
   // ================= 待ち合わせ =================
   function startMeets() { S.phase = 'meet'; S.mi = 0; show('vMeet'); bed('bgm', null); bed('amb', 'snd/amb_street.mp3', 0.35); meetScene() }
   function meetScene() {
@@ -369,20 +445,20 @@ window.__jsUp = true
   // ================= 採点と結果 =================
   function score(st) {
     st = st || S
-    let pts = 0, metGood = 0, metBad = 0, avoid = 0, predOk = 0, d2ok = 0
-    const rows = st.order.map(g => {
-      const hit = g.type === 'atari', p = st.pred[g.id], c = st.chats.find(x => x.g.id === g.id)
-      const ok = p ? (p === 'hit') === hit : null
-      if (ok) predOk++
+    let pts = 0, metGood = 0, metBad = 0, avoid = 0, d2ok = 0
+    // 結果に出すのは、いいねしてマッチした子だけ（見送った子の正体は出さない）
+    const rows = st.order.filter(g => st.liked.includes(g.id)).map(g => {
+      const hit = g.type === 'atari', dec = st.dec[g.id], c = st.chats.find(x => x.g.id === g.id)
       let met = st.met.includes(g.id), res = ''
       if (met) { if (hit) metGood++; else metBad++; res = 'met'; const d = st.d2 && st.d2[g.id]; if (d) { res = d.ok ? 'kept' : 'dumped'; if (d.ok) d2ok++ } }
       else if (c && !hit && c.meet === false) { avoid++; res = 'avoid' }
       else if (c && c.left) res = 'left'
-      return { g, hit, p, ok, res }
+      else if (c) res = 'nomeet'
+      return { g, hit, dec, res }
     })
-    pts = metGood * 40 + d2ok * 30 - metBad * 20 + avoid * 15 + predOk * 5
-    const rank = pts <= 0 ? 0 : pts < 50 ? 1 : pts < 100 ? 2 : pts < 160 ? 3 : 4
-    return { pts, metGood, metBad, avoid, predOk, d2ok, rank, rows }
+    pts = metGood * 40 + d2ok * 30 - metBad * 20 + avoid * 15
+    const rank = pts <= 0 ? 0 : pts < 40 ? 1 : pts < 80 ? 2 : pts < 140 ? 3 : 4
+    return { pts, metGood, metBad, avoid, d2ok, rank, rows }
   }
   function finish() {
     S.phase = 'end'; S.done = true; stopPat()
@@ -391,7 +467,7 @@ window.__jsUp = true
     const r = score(); window.TM && TM.end(r.pts, r.rank >= 3)
   }
   function tipLine(r) {
-    const pick = r.rows.find(x => x.res === 'met' && !x.hit) || r.rows.find(x => !x.hit && x.ok === false) || r.rows.find(x => x.g.type === 'sagi') || r.rows.find(x => !x.hit)
+    const pick = r.rows.find(x => x.res === 'met' && !x.hit) || r.rows.find(x => x.res === 'avoid') || r.rows.find(x => !x.hit) || r.rows[0]
     return pick ? `${tx(pick.g.name)}: ${tx(pick.g.clues[0])}` : ''
   }
   function renderEnd() {
@@ -399,9 +475,9 @@ window.__jsUp = true
     $('#eH').textContent = t.rTitle
     $('#eScore').innerHTML = `${r.pts}<small>${t.rScore}</small>`
     $('#eRank').textContent = t.ranks[r.rank]
-    $('#eSum').innerHTML = `<span>${t.rMet} ${r.metGood}</span><span>${t.rAvoid} ${r.avoid}</span><span>${t.rPred} ${r.predOk}/${r.rows.length}</span><span>${t.rBad} ${r.metBad}</span><span>${t.rD2} ${r.d2ok}</span>`
-    const resL = { kept: t.d2ok, dumped: t.d2ng, met: lang === 'ja' ? '会った' : 'met', avoid: lang === 'ja' ? '断った' : 'skip', left: lang === 'ja' ? '解除' : 'gone' }
-    $('#eList').innerHTML = r.rows.map((x, i) => `<button class="eRow" data-i="${i}"><img src="${img(x.g.photos[0])}" alt=""><span class="nm">${tx(x.g.name)}</span><span class="ty ${x.hit ? 'good' : 'bad'}">${tx(TYPES[x.g.type])}</span><span class="pr">${x.p ? (x.ok ? '◯' : '×') : '-'}</span><span class="mt">${resL[x.res] || ''}</span></button>`).join('')
+    $('#eSum').innerHTML = `<span>${t.rMet} ${r.metGood}</span><span>${t.rAvoid} ${r.avoid}</span><span>${t.rBad} ${r.metBad}</span><span>${t.rD2} ${r.d2ok}</span>`
+    const resL = { kept: t.d2ok, dumped: t.d2ng, met: lang === 'ja' ? '会った' : 'met', avoid: lang === 'ja' ? '断った' : 'skip', left: lang === 'ja' ? '解除された' : 'unmatched', nomeet: lang === 'ja' ? '会わず' : 'no date' }
+    $('#eList').innerHTML = r.rows.map((x, i) => `<button class="eRow" data-i="${i}"><img src="${img(x.g.photos[0])}" alt=""><span class="nm">${tx(x.g.name)}</span><span class="ty ${x.hit ? 'good' : 'bad'}">${tx(TYPES[x.g.type])}</span><span class="mt">${resL[x.res] || ''}</span></button>`).join('') || `<p class="eNone">${t.noMatch}</p>`
     $('#eList').querySelectorAll('.eRow').forEach(b => b.onclick = () => openClue(r.rows[+b.dataset.i].g))
     $('#eTip').textContent = tipLine(r)
   }
@@ -420,8 +496,8 @@ window.__jsUp = true
   }
   async function makeCard() {
     const r = score(), t = L(), cv = $('#card'), ctx = cv.getContext('2d'), W = 1080, H = 1350
-    const pair = r.rows.find(x => x.res === 'met' && !x.hit) || r.rows.find(x => x.res === 'met') || r.rows.find(x => x.g.type === 'sagi')
-    await preload([pair.g.photos[0], pair.g.meet])
+    const pair = r.rows.find(x => x.res === 'met' && !x.hit) || r.rows.find(x => ['met', 'kept', 'dumped'].includes(x.res))
+    if (pair) await preload([pair.g.photos[0], pair.g.meet])
     await (document.fonts ? document.fonts.ready : Promise.resolve())
     ctx.fillStyle = '#fbf8f0'; ctx.fillRect(0, 0, W, H)
     ctx.strokeStyle = '#d9e2ec'; ctx.lineWidth = 2; for (let y = 70; y < H; y += 56) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke() }
@@ -437,14 +513,16 @@ window.__jsUp = true
     half.forEach((s, i) => ctx.fillText(s, 0, 14 + (i - (half.length - 1) / 2) * 52)); ctx.restore(); ctx.textAlign = 'left'
     // 写真と来た人
     const py = 330, ph = 560, pw = 400
+    if (pair) {
     ctx.save(); ctx.translate(120, py); ctx.rotate(-0.05); ctx.fillStyle = '#fff'; ctx.shadowColor = 'rgba(0,0,0,.25)'; ctx.shadowBlur = 20; ctx.fillRect(-14, -14, pw + 28, ph + 80); ctx.shadowBlur = 0
     drawCover(ctx, cache[pair.g.photos[0]], 0, 0, pw, ph); ctx.fillStyle = '#1d2228'; ctx.font = '600 34px "Klee One",sans-serif'; ctx.fillText(t.photoWas, 10, ph + 50); ctx.restore()
     ctx.save(); ctx.translate(570, py + 10); ctx.rotate(0.04); ctx.fillStyle = '#fff'; ctx.shadowColor = 'rgba(0,0,0,.25)'; ctx.shadowBlur = 20; ctx.fillRect(-14, -14, pw + 28, ph + 80); ctx.shadowBlur = 0
     drawCover(ctx, cache[pair.g.meet], 0, 0, pw, ph); ctx.fillStyle = '#1d2228'; ctx.font = '600 34px "Klee One",sans-serif'; ctx.fillText(t.realWas, 10, ph + 50); ctx.restore()
     ctx.fillStyle = '#8a3a2a'; ctx.font = '600 38px "Klee One",sans-serif'
     wrapText(ctx, `${tx(pair.g.name)}: ${tx(pair.g.clues[0])}`, 100, 1050, 900, 50)
+    } else { ctx.fillStyle = '#6b7078'; ctx.font = '600 44px "Klee One",sans-serif'; ctx.fillText(r.rows.length ? (lang === 'ja' ? '誰とも会わなかった' : 'No dates this time') : t.noMatch, 100, 620) }
     ctx.fillStyle = '#1d2228'; ctx.font = '600 34px "Klee One",sans-serif'
-    ctx.fillText(`${t.rMet} ${r.metGood}   ${t.rAvoid} ${r.avoid}   ${t.rPred} ${r.predOk}/${r.rows.length}`, 100, 1190)
+    ctx.fillText(`${t.rMet} ${r.metGood}   ${t.rAvoid} ${r.avoid}   ${t.rD2} ${r.d2ok}`, 100, 1190)
     ctx.fillStyle = '#6b7078'; ctx.font = '500 30px "Zen Kaku Gothic New",sans-serif'; ctx.fillText('tom3games.com/play/matchapp-sagi/', 100, 1290)
     return cv
   }
@@ -462,22 +540,13 @@ window.__jsUp = true
   function frame() {
     if (!S) return
     if (S.phase === 'swipe' && S.view === 'vSwipe' && !S.tut && !S.busy) {
-      S.battT += 0 // 進めるのは advance 側
     }
     if (S.d2wait) $('#mtPat i').style.transform = `scaleX(${Math.max(0, 1 - (G.t - S.d2Start) / D2_WAIT)})`
-    if (patLen) { const k = Math.max(0, 1 - (G.t - patStart) / patLen); const p = $('#pat'); p.firstChild.style.transform = `scaleX(${k})`; p.classList.toggle('hot', k < 0.35) }
-    else $('#pat i').style.transform = 'scaleX(0)'
+    if (S.phase === 'chat') bars()
   }
-  // 電池はゲームの時計で減る（チュートリアル中と札が飛んでいる間は減らない）
+  // トーク中に相手のプロフを開いている間は、時計を止める（考える時間）
   const _adv = advance
-  advance = function (dt) {
-    if (S && S.phase === 'swipe' && S.view === 'vSwipe' && !S.tut) {
-      S.battT += dt
-      if (S.battT >= BATT_MS) { S.battT = BATT_MS; hud(); endSwipe() }
-      else if ((S.battT / 1000 | 0) !== (S._bs | 0)) { S._bs = S.battT / 1000; hud() }
-    }
-    _adv(dt)
-  }
+  advance = function (dt) { if (S && S.hold) { frame(); return } _adv(dt) }
   // ================= 入力 =================
   function wire() {
     $('#bStart').onclick = () => { Snd.init(); sfx('tap'); startGame() }
@@ -485,7 +554,6 @@ window.__jsUp = true
     $('#howClose').onclick = () => { $('#how').hidden = true }
     $('#bLang').onclick = () => { lang = lang === 'ja' ? 'en' : 'ja'; try { localStorage.setItem('ms_lang', lang) } catch (e) {} texts() }
     $('#bMute').onclick = () => { muted = !muted; Snd.setMute(muted); try { localStorage.setItem('ms_mute', muted ? '1' : '0') } catch (e) {} muteIcon() }
-    $('#bHit').onclick = () => pred('hit'); $('#bMiss').onclick = () => pred('miss')
     $('#bLoupe').onclick = () => { setLoupe(!loupeOn); sfx('tap') }
     $('#bLike').onclick = () => decide('like'); $('#bPass').onclick = () => decide('pass')
     $('#bToChat').onclick = toChat
@@ -493,6 +561,8 @@ window.__jsUp = true
     $('#bSave').onclick = saveCard; $('#bPost').onclick = postX
     $('#bAgain').onclick = () => { sfx('tap'); startGame() }
     $('#bTitle').onclick = () => { S.phase = 'title'; show('vTitle'); bed('bgm', null) }
+    $('#rBack').onclick = closeRoom
+    $('#cAv').onclick = openProf; $('#cName').onclick = openProf; $('#profClose').onclick = closeProf
     $('#clueClose').onclick = () => { $('#clue').hidden = true; S.clueOpen = null }
     $('#clue').onclick = e => { if (e.target.id === 'clue') { $('#clue').hidden = true; S.clueOpen = null } }
   }
@@ -520,8 +590,8 @@ window.__jsUp = true
   window.MA = {
     get S() { return S }, G, GIRLS, score: () => score(), lang: () => lang,
     dbg: { pause(v = true) { G.paused = v; last = performance.now() }, step(ms) { const n = Math.ceil(ms / 50); for (let i = 0; i < n; i++) advance(Math.min(50, ms - i * 50)) }, speed(x) { G.speed = x } },
-    act: { start: s => startGame(s), pred, like: () => decide('like'), pass: () => decide('pass'), loupe: setLoupe, photo: setPhoto, choose: i => { const c = C(); const k = S.perm[c.g.id][c.r][i]; choose(k) }, chooseK: choose, meet: meetChoice, toChat, nextMeet, date2: i => { const g = GIRLS.find(x => x.id === S.met[S.mi]); choose2(S.perm2[g.id][i]) }, date2K: choose2, openClue, makeCard, endSwipe },
-    view: () => S && S.view, opts: () => [...document.querySelectorAll('#opts button[data-k]')].map(b => +b.dataset.k), d2opts: () => (S && S.d2wait ? [...document.querySelectorAll('#mtOpts button[data-k]')].map(b => +b.dataset.k) : []),
+    act: { start: s => startGame(s), like: () => decide('like'), pass: () => decide('pass'), loupe: setLoupe, photo: setPhoto, choose: i => { const c = S.chats[S.open]; choose(S.perm[c.g.id][c.r][i]) }, chooseK: choose, open: openRoom, back: closeRoom, prof: openProf, profClose: closeProf, meet: meetChoice, toChat, nextMeet, date2: i => { const g = GIRLS.find(x => x.id === S.met[S.mi]); choose2(S.perm2[g.id][i]) }, date2K: choose2, openClue, makeCard, endSwipe },
+    view: () => S && S.view, opts: () => [...document.querySelectorAll('#opts button[data-k]')].map(b => +b.dataset.k), mine: () => (S ? S.chats.map((c, i) => ({ i, id: c.g.id, state: c.state, since: G.t - (c.arrivedAt || 0), left: c.patLen ? c.patLen - (G.t - c.myT0) : null })) : []), d2opts: () => (S && S.d2wait ? [...document.querySelectorAll('#mtOpts button[data-k]')].map(b => +b.dataset.k) : []),
   }
   boot()
 })()
