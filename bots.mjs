@@ -36,8 +36,8 @@ window.__bot = function (kind, seed, react) {
   const red = c => c.heard.filter(m => m.clue).length
   guard = 0
   while (S().phase === 'chat' && guard++ < 4000) {
-    const ready = MA.mine().filter(x => ['mine', 'offer', 'clash'].includes(x.state) || (x.state === 'sus' && x.left != null))
-    if (!ready.length) { MA.dbg.step(500); continue }
+    const ready = MA.mine().filter(x => ['first', 'mine', 'offer', 'clash'].includes(x.state) || (x.state === 'sus' && x.left != null))
+    if (!ready.length) { const un = S().chats.findIndex(x => x.unread && x.state !== 'done'); if (un >= 0 && kind !== 'nothing') { MA.act.open(un); MA.act.back() } MA.dbg.step(500); continue }
     ready.sort((x, y) => (x.left ?? 1e9) - (y.left ?? 1e9))
     const ci = ready[0].i, c = S().chats[ci]
     // 手がかり bot は、会うと決めた子ができたら、ほかの子には返さない（誠実）
@@ -48,7 +48,11 @@ window.__bot = function (kind, seed, react) {
     MA.dbg.step(think)
     MA.act.open(ci)
     const st = c.state
-    if (st === 'offer') {
+    if (st === 'first') {
+      const f = MA.TALK[c.g.id].first
+      const k = kind === 'clue' ? MA.FIRST.reduce((a, x, j) => (f[x.id] > f[MA.FIRST[a].id] ? j : a), 0) : kind === 'kind' || kind === 'profile' ? 0 : Math.floor(R() * 3)
+      MA.act.first(k)
+    } else if (st === 'offer') {
       const yes = kind === 'random' ? R() < .5 : kind === 'mix' ? R() < P.meet : kind === 'meetall' || kind === 'profile' || kind === 'kind' ? true : red(c) === 0 && !S().met.length
       MA.act.meet(yes)
     } else if (st === 'clash') {
@@ -56,21 +60,23 @@ window.__bot = function (kind, seed, react) {
     } else if (st === 'sus') {
       MA.act.sus(kind === 'clue' ? 0 : kind === 'mix' ? P.sus : Math.floor(R() * 3))
     } else if (st === 'mine') {
-      const o = MA.opts(), soc = o.map((x, i) => ({ x, i })).filter(z => z.x.k === 's')
-      const st = id => id.replace(/2$/, ''), like = MA.TALK[c.g.id].like || {}
-      // 手がかり bot: この子に刺さる型を選ぶ（プロフと文の調子から読む）／やさしい bot: いつも一番ていねいな返し
-      const goodS = kind === 'kind' ? (soc.find(z => st(z.x.id) === 'polite') || soc.find(z => st(z.x.id) === 'empathy')) : soc.slice().sort((x, y) => (like[st(y.x.id)] || 0) - (like[st(x.x.id)] || 0)).find(z => (like[st(z.x.id)] || 0) > 0)
-      const probes = o.map((x, i) => ({ x, i })).filter(z => z.x.k === 'p' && MA.PROBES.find(p => p.id === z.x.id).min <= c.turn)
-      const cautious = MA.TALK[c.g.id].cautious
+      const o = MA.opts(), tk = MA.TALK[c.g.id], like = tk.like || {}, mines = tk.mines || []
+      const idx = o.map((x, i) => ({ x, i }))
+      const lk = z => (z.x.id === 'probe' ? -0.5 : (like[z.x.id.replace(/2$/, '')] || 0))
+      const safe = idx.filter(z => !mines.includes(z.x.id) && z.x.id !== 'lewd')
+      const goodS = kind === 'kind' ? (idx.find(z => z.x.id === 'polite') || idx.find(z => z.x.id === 'empathy')) : safe.filter(z => z.x.k === 's').sort((p, q) => lk(q) - lk(p)).find(z => lk(z) > 0)
+      const probes = idx.filter(z => z.x.k === 'p' && (z.x.min || 0) <= (c.th ? c.bi : c.turn))
+      const soc = idx.filter(z => z.x.k === 's')
+      const cautious = tk.cautious
       if (kind === 'clue') {
         if (cautious && c.turn >= 6 && c.aff >= 1 && c.turn >= c.invBlock && red(c) === 0) MA.act.invite()
         else if (cautious && c.aff < 1 && goodS) MA.act.choose(goodS.i)
         else if (probes.length && c.run < 3) MA.act.choose(probes[0].i)
         else if (goodS) MA.act.choose(goodS.i)
-        else MA.act.choose(probes.length ? probes[0].i : 0)
+        else MA.act.choose(probes.length ? probes[0].i : (safe[0] || idx[0]).i)
       } else if (kind === 'profile' || kind === 'kind') {
         if (cautious && c.turn >= 6 && c.turn >= c.invBlock) MA.act.invite()
-        else MA.act.choose(goodS ? goodS.i : 0)
+        else MA.act.choose(goodS ? goodS.i : (safe[0] || idx[0]).i)
       } else if (kind === 'mix') {
         if ((P.early && c.turn >= 2 && R() < .3) || (c.turn >= 6 && R() < .3)) MA.act.invite()
         else if (R() < P.bad) MA.act.choose(soc.length ? soc[0].i : 0)

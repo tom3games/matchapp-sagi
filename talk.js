@@ -92,3 +92,93 @@ const STYLE = {
   l: { like: { empathy: 1, polite: 1, light: 0, praise: -1, long: 0, lewd: -1 }, re: { praise: ['写真の話はいいよ〜笑 それより最近どう？', 'let\'s not talk photos lol. how\'ve you been?'] }, hit: ['共感の返し。写真を褒めるとはぐらかす', 'Empathy. Praise her photos and she changes the subject'] },
 }
 for (const k in STYLE) Object.assign(TALK[k], STYLE[k])
+
+// 最初の1通（こちらから送る）。本人指定の3つ
+const FIRST = [
+  { id: 'stiff', t: ['よろしくお願いします！', 'Nice to meet you!'] },
+  { id: 'chara', t: ['可愛すぎていいねしちゃった！', 'You\'re too cute, I had to like you!'] },
+  { id: 'funny', t: ['マチアプ初めてで手が震ええええる', 'First time on a dating app, my hands are shaaaaking'] },
+]
+// first: 型ごとの刺さり方（+1 刺さる / 0 / -1 冷める / -2 既読無視）。fre は反応、firstHit は答え合わせ
+// mines: 地雷（踏むとブロック）。lewd=下心の誘い、doubt=写真を疑う一言、wait=待たせる、others=ほかの子の影
+const FIRSTS = {
+  a: { first: { stiff: 1, chara: -2, funny: 0 }, fre: { stiff: ['こちらこそ、よろしくお願いします', 'Likewise, nice to meet you'], funny: ['ふふ、緊張しますよね', 'Haha, it is nerve-racking'] }, firstHit: ['お堅い「よろしくお願いします」。チャラいと既読のまま', 'The formal one. The flirty one got left on read'], mines: ['lewd'] },
+  b: { first: { stiff: 0, chara: -1, funny: 1 }, fre: { stiff: ['かしこまらなくて大丈夫ですよ笑', 'No need to be formal, lol'], funny: ['落ち着いて笑 私も初めての時そうでした', 'Calm down, lol. I was like that at first too'], chara: ['あ、ありがとうございます…', 'Oh, um, thanks...'] }, firstHit: ['ふざけた1通。笑ってくれる人', 'The goofy one. She likes a laugh'], mines: ['lewd'] },
+  c: { first: { stiff: 1, chara: -2, funny: 0 }, fre: { stiff: ['よろしくお願いします。犬の写真ばっかりですみません', 'Nice to meet you. Sorry for all the dog photos'] }, firstHit: ['お堅い1通。チャラいと既読のまま', 'The formal one. The flirty one got left on read'], mines: ['lewd'] },
+  d: { first: { stiff: 0, chara: 1, funny: 0 }, fre: { chara: ['でしょ〜笑', 'right?~ lol'] }, firstHit: ['チャラい褒め。ただし写真の話は地雷', 'The flirty compliment. But photo talk is a landmine'], mines: ['doubt'] },
+  e: { first: { stiff: 1, chara: 1, funny: -1 }, fre: { funny: ['…真剣じゃないの？', '...You\'re not serious?'], chara: ['うれしい…運命かも', 'So happy... maybe it\'s fate'] }, firstHit: ['どれでも重くなる。ふざけると「真剣じゃないの？」', 'Anything gets heavy. Joking gets "aren\'t you serious?"'], mines: ['others'] },
+  f: { first: { stiff: 1, chara: -2, funny: -1 }, fre: { funny: ['真剣に探してない方ですか？', 'Are you not looking for anything serious?'], stiff: ['はじめまして。真剣な方で安心しました', 'Hello. I\'m relieved you seem serious'] }, firstHit: ['お堅い1通。チャラいと既読のまま', 'The formal one. The flirty one got left on read'], mines: ['lewd', 'others'] },
+  g: { first: { stiff: -1, chara: 1, funny: 1 }, fre: { stiff: ['かたっ笑', 'so stiff lol'], funny: ['震えすぎ笑 ウケる', 'stop shaking lol'], chara: ['知ってる〜笑', 'i know~ lol'] }, firstHit: ['ふざけかチャラい1通。お堅いと「かたっ」', 'Goofy or flirty. Formal gets "so stiff"'], mines: [] },
+  h: { first: { stiff: 0, chara: -1, funny: -1 }, fre: { funny: ['で？', 'And?'], chara: ['そういうのいいから', 'Skip that'] }, firstHit: ['お堅い1通。中身より返信の速さ', 'The formal one. Speed matters more than words'], mines: ['wait'] },
+  i: { first: { stiff: 0, chara: 1, funny: 0 }, fre: { chara: ['え〜うれしい！今日会お！', 'aww yay! let\'s meet today!'] }, firstHit: ['チャラい褒めに即食いつく。それが手がかり', 'She jumps on the flirty compliment. That\'s the tell'], mines: [], instantFirst: 'chara' },
+  j: { first: { stiff: 0, chara: 1, funny: -1 }, fre: { chara: ['うれしい！素直な人、好きです', 'Thank you! I like honest people'], funny: ['あ、はい…', 'Oh, okay...'] }, firstHit: ['チャラい褒めに即食いつく。それが勧誘の入口', 'She jumps on the compliment. That\'s the recruiting door'], mines: [] },
+  k: { first: { stiff: 1, chara: 1, funny: 1 }, fre: { stiff: ['えーやばい！よろしく〜！', 'Omg! Hi~!'], chara: ['えーやばい！うれしすぎる〜！', 'Omg! So happy~!'], funny: ['えーやばい！かわいい〜！', 'Omg! Cute~!'] }, firstHit: ['どの1通にも同じ温度。それが営業', 'Same energy for any opener. That\'s the pitch'], mines: [] },
+  l: { first: { stiff: 0, chara: -1, funny: 1 }, fre: { chara: ['写真の話はいいよ〜笑', 'let\'s not talk photos lol'], funny: ['わかる〜私も最初そうだった', 'same~ i was like that too'] }, firstHit: ['ふざけた1通。写真を褒めるとはぐらかす。写真を疑うのは地雷', 'The goofy one. Photo praise gets dodged, doubting her photos is a landmine'], mines: ['doubt'] },
+}
+for (const k in FIRSTS) Object.assign(TALK[k], FIRSTS[k])
+// 写真を疑う一言（写真の子には地雷）
+SOCIAL.push({ id: 'doubt', t: ['写真と実物、ちがったりしない？笑', 'Do you actually look like your photos? lol'] })
+for (const k in TALK) TALK[k].like = Object.assign({ doubt: -1 }, TALK[k].like)
+TALK.g.like.doubt = 0; TALK.k.like.doubt = 1
+
+// ---- 相手の直前の一言に合わせた3択（2026-11-13 本人「選択肢が会話に噛み合ってない」）
+// 相手が質問した時は、3択を全部その答えにする（型は答え方で出す）。p は探りの質問につなぐ前置き
+const QA = {
+  'マッチうれしい！まりあです！毎日連絡できる人ですか？': { a: [['polite', '毎日は約束できないけど、できるだけ返します', 'Can\'t promise every day, but I\'ll reply when I can'], ['light', 'できるできる！100通でも！', 'Totally! A hundred a day!']], p: ['マイペースだけど、よろしく。', 'I go at my own pace, but hi.'] },
+  '浮気された。それから人を信じられなくて…ねえ、浮気しないよね？': { a: [['polite', 'しないよ。でもまだ会ってもいないから、ゆっくり知りたい', 'I won\'t. But we haven\'t even met, so let\'s take it slow'], ['light', 'しないしない笑', 'Nope, never lol']], p: ['つらかったね。', 'That sounds rough.'] },
+  '…真剣じゃないの？': { a: [['polite', '真剣だよ。緊張してふざけちゃっただけ', 'I am serious. I just got nervous and joked'], ['light', '真剣にふざけてる笑', 'Seriously joking lol']], p: ['真剣だよ。', 'I\'m serious.'] },
+  'はじめまして。いきなりですが、結婚願望ありますか？': { a: [['polite', 'いつかはしたいです。まずはお互いを知れたら', 'Someday. Let\'s get to know each other first'], ['light', 'あるある！すぐにでも！', 'Yes yes! Right away!']], p: ['いつかは。', 'Someday.'] },
+  '…遊び目的ですか？': { a: [['polite', '違います。真剣に探してます', 'No. I\'m looking for something serious'], ['light', '遊びって何して遊ぶ？笑', 'Play what, exactly? lol']], p: ['違いますよ。', 'No, I\'m not.'] },
+  '真剣に探してない方ですか？': { a: [['polite', '真剣です。ふざけてすみません', 'I\'m serious. Sorry for joking'], ['light', '真剣にふざけてます笑', 'Seriously joking lol']], p: ['真剣です。', 'I\'m serious.'] },
+  'やほー！どこ住み？': { a: [['polite', '大阪に住んでます。きららさんは？', 'I live in Osaka. And you?'], ['light', '大阪！そっちは？', 'osaka! u?']], p: ['大阪〜。', 'osaka~.'] },
+  'きのう？おととい？': { a: [['polite', '最近なんですね', 'Oh, recently then'], ['light', '自分のことやん笑', 'it\'s ur own life lol']], p: ['最近なんだ笑', 'recent then lol.'] },
+  '天才？？': { a: [['polite', 'ありがとうございます', 'Thank you'], ['light', '知ってる笑', 'i know lol']], p: ['でしょ笑', 'right? lol.'] },
+  'よろしく。返信はやい人？': { a: [['polite', 'はやい方だと思います', 'I think I\'m pretty quick'], ['light', '秒で返す！', 'Instant replies!']], p: ['はやい方です。', 'Pretty fast.'] },
+  '美容部員。仕事中も返信はするけど？': { a: [['polite', '僕も合間に返します', 'I reply between tasks too'], ['light', 'さすが笑', 'Impressive lol']], p: ['すごいですね。', 'Impressive.'] },
+  'は？': { a: [['polite', 'すみません、変なこと言いました', 'Sorry, that was a weird thing to say'], ['light', 'いや、なんでもない笑', 'Nah, never mind lol']], p: ['ごめん。', 'Sorry.'] },
+  'それ今いる？': { a: [['polite', '失礼しました', 'My apologies'], ['light', 'いらんかった笑', 'Nope, didn\'t need it lol']], p: ['ごめん。', 'Sorry.'] },
+  'で？': { a: [['polite', 'すみません、よろしくお願いします', 'Sorry. Nice to meet you'], ['light', 'で、よろしく！', 'And... hi!']], p: ['よろしく。', 'Hi.'] },
+  'はじめまして！えりかです。お仕事は何されてるんですか？': { a: [['polite', '会社員です。えりかさんは？', 'Office job. And you?'], ['light', 'ふつうの会社員〜', 'just a regular office guy~']], p: ['会社員です。', 'Office job.'] },
+  '自分で事業してて！…それより、会社員だけだと将来不安じゃないですか？': { a: [['polite', '今のところ、仕事は楽しいです', 'For now, I enjoy my work'], ['light', '不安より眠気が勝ってる笑', 'Too sleepy to worry lol']], p: ['そこまでは。', 'Not really.'] },
+  'ここ通知こないので、LINEで話しませんか？': { a: [['polite', 'もう少しここで話したいです', 'I\'d like to chat here a bit more'], ['light', 'LINE聞くの早くない？笑', 'Isn\'t LINE a bit soon? lol']], p: ['もう少しここで。', 'Here for now.'] },
+  'マッチうれしい〜！ここなです！なんでいいねしてくれたの？': { a: [['polite', '自己紹介が明るくて、話してみたいと思って', 'Your bio was so upbeat, I wanted to talk'], ['praise', '写真かわいすぎて指が勝手に', 'Your photo was so cute my thumb did it']], p: ['写真の雰囲気が好きで。', 'I liked the vibe of your photos.'] },
+  '写真の話はいいよ〜笑 それより最近どう？': { a: [['polite', '仕事が忙しかったです。ゆかさんは？', 'Work\'s been busy. You?'], ['light', '最近？元気元気！', 'Lately? All good!']], p: ['ぼちぼち。', 'So-so.'] },
+}
+// あいさつ（マッチのお礼など）への返し
+const GREET = { a: [['polite', 'こちらこそ、よろしくお願いします！プロフを読んで話してみたくなりました', 'Likewise! I read your profile and wanted to talk'], ['light', 'よろしく〜！', 'heyy~!']], p: ['こちらこそ！', 'Likewise!'] }
+const GREET_LINES = ['マッチありがとうございます！みのりです。よろしくお願いします', 'はじめまして、さきです！返信ゆっくりでごめんなさい', 'マッチありがとうございます。犬の写真ばっかりですみません', 'ありがと〜よろしく', 'マッチありがと〜！', 'マッチありがとう！ゆかです〜']
+// つらい話への返し
+const SAD_LINES = ['浮気です。3年付き合って、指輪も選んでたのに。そのあと…（長文が5通続く）', '寂しくて朝まで起きてることある', '顔はあんまり出したくないの…嫌われたら怖いし', 'カフェで本を読んでます。元彼ともよく行ってた店で', '駅前のパスタ屋さん。元彼が最後に連れていってくれた店です', '浮気された。それから人を信じられなくて…ねえ、浮気しないよね？']
+const SAD = { a: [['empathy', 'それはつらかったね', 'That must have been hard'], ['light', 'まあ次いこ次！笑', 'Eh, onward and upward! lol']], p: ['話してくれてありがとう。', 'Thanks for telling me.'] }
+// 疲れた話（このときだけ「疲れた日って〜」が出る）
+const TIRED_LINES = ['夜勤明けはラーメン食べて寝てます笑 休みの日は海まで歩くことも', '夜勤の日はずっと起きてます笑', '最近はすぐ寝ちゃう。年かな笑']
+// ふつうの話への返し（型ごと。どの話題にも返しとして成り立つ文だけ）
+const REPLY = {
+  polite: ['もう少し詳しく聞いてもいいですか？', 'Could you tell me a little more?'],
+  polite2: ['教えてくれてありがとうございます。僕は週末はだいたい料理をしてます', 'Thanks for sharing. I usually cook on weekends'],
+  light: ['それウケる笑', 'lol that\'s great'],
+  light2: ['まじ？最高じゃん', 'no way, love it'],
+  empathy: ['いいね、それ聞いてちょっと親近感わいた', 'Nice, that makes me feel closer to you'],
+  empathy2: ['わかる。疲れた日ってそういうのしたくなるよね', 'I get it. On tiring days you just want that'],
+  praise: ['てか写真かわいすぎて緊張する', 'Also, your photos are so cute I\'m nervous'],
+  long: ['僕は休みはジム行ってカフェで勉強して夜は飲みに行って最近はキャンプ道具もそろえて', 'I hit the gym, study at cafes, drink at night, and just bought all this camping gear and'],
+  lewd: ['今度うちで飲もうよ', 'Let\'s drink at my place sometime'],
+  doubt: ['写真と実物、ちがったりしない？笑', 'Do you actually look like your photos? lol'],
+}
+const BRIDGE = ['そうなんだ。', 'I see. ']
+QA['今すぐできる？できないなら言わないで'] = { a: [['polite', '今はちょっと難しいです。すみません', 'Not right now, sorry'], ['light', '今は無理〜笑', 'can\'t rn lol']], p: ['今は無理だけど。', 'Not now, but.'] }
+QA['元彼？3人いるけどどれ？笑'] = { a: [['polite', '一番最近の人のことです', 'The most recent one'], ['light', '全員分聞きたい笑', 'tell me about all 3 lol']], p: ['最近の人で。', 'The latest one.'] }
+// 相手の短い反応（うれしい・えっと・は？など）の後は、話題を変える返しにする（「そうなんだ」で受けると噛み合わない）
+const REACT = {
+  polite: ['ところで、最近おすすめのお店とかありますか？', 'By the way, any places you\'d recommend lately?'],
+  polite2: ['話していて楽しいです。ありがとうございます', 'I\'m enjoying this. Thank you'],
+  light: ['てか今なにしてる？笑', 'so what u doing rn? lol'],
+  light2: ['いいね〜！今日なにしてた？', 'nice~! what\'d you do today?'],
+  empathy: ['今日はどんな一日だった？', 'How was your day today?'],
+  empathy2: ['今日はどんな一日だった？', 'How was your day today?'],
+  praise: ['てか写真かわいすぎて緊張する', 'Also, your photos are so cute I\'m nervous'],
+  long: REPLY.long, lewd: REPLY.lewd, doubt: REPLY.doubt,
+}
+const REACT_BRIDGE = ['ところで、', 'By the way, ']
+const REACT_LINES = []
+for (const k in TALK) { const t = TALK[k]; for (const x of [...(t.nice || []), ...(t.meh || []), ...Object.values(t.re || {}), ...Object.values(t.fre || {}), t.early].filter(Boolean)) if (!QA[x[0]] && !SAD_LINES.includes(x[0])) REACT_LINES.push(x[0]) }

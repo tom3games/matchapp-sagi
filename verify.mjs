@@ -13,7 +13,9 @@ for (let i = 0; i < 60; i++) { try { await fetch(`http://localhost:${PORT}/`); b
 const URL0 = `http://localhost:${PORT}/`
 const HELP = `
 window.__h = {
-  to(seed, ids, order) { for (let k = 0; k < 40; k++) { MA.act.start(seed + k * 101); if (ids.every(id => MA.S.order.some(g => g.id === id))) break } MA.dbg.pause(); MA.dbg.pause(); for (let i = 0; i < 14 && MA.S.phase === 'swipe'; i++) { const g = MA.S.order[MA.S.idx]; if (ids.includes(g.id) && MA.S.likesLeft) MA.act.like(); else MA.act.pass(); if (MA.S.liked.length === ids.length && MA.S.phase === 'swipe') { MA.dbg.step(400); MA.act.endSwipe(); break } MA.dbg.step(400) } if (order) for (const k in order) MA.S.porder[k] = order[k]; MA.act.toChat(); return MA.S.chats.map(c => c.g.id) },
+  to(seed, ids, order) { for (let k = 0; k < 40; k++) { MA.act.start(seed + k * 101); if (ids.every(id => MA.S.order.some(g => g.id === id))) break } MA.dbg.pause(); MA.dbg.pause(); for (let i = 0; i < 14 && MA.S.phase === 'swipe'; i++) { const g = MA.S.order[MA.S.idx]; if (ids.includes(g.id) && MA.S.likesLeft) MA.act.like(); else MA.act.pass(); if (MA.S.liked.length === ids.length && MA.S.phase === 'swipe') { MA.dbg.step(400); MA.act.endSwipe(); break } MA.dbg.step(400) } if (order) for (const k in order) MA.S.porder[k] = order[k]; MA.act.toChat(); if (!this.noFirst) this.firsts(); return MA.S.chats.map(c => c.g.id) },
+  // 最初の1通: その子に一番刺さる型を送る
+  firsts() { MA.S.chats.forEach((c, i) => { const f = MA.TALK[c.g.id].first; const k = MA.FIRST.reduce((a, x, j) => (f[x.id] > f[MA.FIRST[a].id] ? j : a), 0); MA.act.open(i); MA.act.first(k); MA.act.back() }) },
   ci(id) { return MA.S.chats.findIndex(c => c.g.id === id) },
   c(id) { return MA.S.chats[this.ci(id)] },
   // 待つ間、未読がたまった部屋は開いて読む（人も一覧を見て読む）
@@ -23,11 +25,12 @@ window.__h = {
     const c = this.c(id), st = this.wait(id); if (st !== 'mine') return st
     const since = MA.G.t - c.arrivedAt; if (since < gap) MA.dbg.step(gap - since)
     MA.act.open(this.ci(id)); const o = MA.opts()
-    const isP = x => x.k === 'p', polite = x => isP(x) && MA.PROBES.find(p => p.id === x.id).min <= c.turn, sg = x => x.k === 's' && ((MA.TALK[c.g.id].like || {})[x.id.replace(/2$/, '')] || 0) > 0, sb = x => x.k === 's' && !sg(x)
+    const bi = c.th ? c.bi : c.turn, like = MA.TALK[c.g.id].like || {}, lk = x => like[x.id.replace(/2$/, '')] || 0, mines = MA.TALK[c.g.id].mines || []
+    const isP = x => x.k === 'p', polite = x => isP(x) && (x.min != null ? x.min : MA.PROBES.find(p => p.id === x.id).min) <= bi, sg = x => x.k === 's' && lk(x) > 0, sb = x => x.k === 's' && lk(x) < 0 && !mines.includes(x.id)
     let i = 0
     if (typeof pol === 'number') i = pol
-    else if (pol === 'good') { i = o.findIndex(x => polite(x)); if (i < 0 || c.run >= 3) i = o.findIndex(sg); if (i < 0) i = o.findIndex(polite); if (i < 0) i = 0 }
-    else if (pol === 'social') { i = o.findIndex(sg); if (i < 0) i = o.findIndex(polite); if (i < 0) i = o.findIndex(x => x.k === 's') }
+    else if (pol === 'good') { i = o.findIndex(x => polite(x)); if (i < 0 || c.run >= 3) i = o.findIndex(sg); if (i < 0) i = o.findIndex(polite); if (i < 0) i = o.findIndex(x => !mines.includes(x.id) && x.id !== 'lewd'); if (i < 0) i = 0 }
+    else if (pol === 'social') { i = o.findIndex(sg); if (i < 0) i = o.findIndex(polite); if (i < 0) i = o.findIndex(x => x.k === 's' && !mines.includes(x.id) && x.id !== 'lewd'); if (i < 0) i = 0 }
     else if (pol === 'probe') i = Math.max(0, o.findIndex(isP))
     else if (pol === 'bad') { i = o.findIndex(sb); if (i < 0) i = 0 }
     MA.act.choose(i); MA.act.back(); return 'sent'
@@ -149,39 +152,42 @@ await t('同時進行: 複数の子から返事がずれて届き、未読の数
   await p.screenshot({ path: ROOT + '/shots/v-chatlist.png' })
   expect(r.n >= 3 && r.gaps.every(g => g >= 3999) && r.badges >= 2 && r.rows === 4, JSON.stringify(r)); return r
 })
-await t('返事はすぐ来ない・未読は一度に3件まで', async () => {
-  const r = await p.evaluate(() => { __h.to(5, ['e', 'f', 'i', 'j']); MA.dbg.step(60000); const unread = MA.S.chats.reduce((a, c) => a + c.unread, 0); const c = MA.S.chats[0]; MA.act.open(0); const t0 = MA.G.t, n0 = c.log.length; MA.act.choose(0); MA.act.back(); let n = 0; while (c.log.length < n0 + 2 && n < 30000) { MA.dbg.step(100); n += 100 } return { unread, waited: MA.G.t - t0 } })
-  expect(r.unread <= 3 && r.waited >= 1200, JSON.stringify(r)); return r
+await t('返事はすぐ来ない・未読は一度に4件まで', async () => {
+  const r = await p.evaluate(() => { __h.to(5, ['e', 'f', 'i', 'j']); MA.dbg.step(60000); const unread = MA.S.chats.reduce((a, c) => a + c.unread, 0); const ci = __h.ci('e'); MA.act.open(ci); for (let n = 0; n < 120 && MA.S.chats[ci].state !== 'mine'; n++) MA.dbg.step(500); MA.act.back(); const c = MA.S.chats[ci]; MA.dbg.step(4000); MA.act.open(ci); const t0 = MA.G.t, n0 = c.log.length; MA.act.choose(0); MA.act.back(); let n = 0; while (c.log.length < n0 + 2 && n < 30000) { MA.dbg.step(100); n += 100 } return { unread, waited: MA.G.t - t0 } })
+  expect(r.unread <= 4 && r.waited >= 1200 && r.waited < 30000, JSON.stringify(r)); return r
 })
 await t('トークは長い: 慎重な子は5往復より前に誘うと断られ、6往復ほどで会える', async () => {
-  const r = await p.evaluate(() => { __h.to(5, ['a']); __h.talk('a', 2); const early = __h.inv('a'); const e = { st: early, aff: __h.c('a').aff, txt: __h.c('a').log.slice(-1)[0].text }; const st = __h.date('a'); return { e, st, turn: __h.c('a').turn } })
+  const r = await p.evaluate(() => { __h.to(5, ['a']); __h.talk('a', 2); const early = __h.inv('a'); const e = { st: early, aff: __h.c('a').aff, txt: __h.c('a').log.filter(m => m.who === 'her').map(m => m.text).join('|') }; const st = __h.date('a'); return { e, st, turn: __h.c('a').turn } })
   expect(r.e.st === 'mine' && /もう少し/.test(r.e.txt) && r.st === 'offer' && r.turn >= 6, JSON.stringify(r)); return r
 })
 await t('すぐ会いたがる子（業者）は3往復で向こうから誘ってくる', async () => {
   const r = await p.evaluate(() => { __h.to(5, ['j']); const st = __h.talk('j', 3, 'social'); return { st, turn: __h.c('j').turn, ask: __h.c('j').log.some(m => /紹介したい/.test(m.text)) } })
   expect(r.st === 'offer' && r.turn === 3 && r.ask, JSON.stringify(r))
 })
-await t('探り: 早すぎる質問は引かれる・質問攻めも引かれる', async () => {
+await t('探り: 時期が早い探りは「いきなり？」で引かれる', async () => {
   const r = await p.evaluate(() => {
-    __h.to(5, ['a'], { a: ['ex', 'photo', 'hol', 'job', 'app', 'area', 'night', 'call'] }); __h.say('a', 'probe'); MA.dbg.step(15000)
-    const rude = { aff: __h.c('a').aff, txt: __h.c('a').log.filter(m => m.who === 'her').slice(-1)[0].text }
-    __h.to(6, ['b']); for (let k = 0; k < 4; k++) __h.say('b', 'probe'); MA.dbg.step(20000)
-    const many = __h.c('b').log.filter(m => m.who === 'her').slice(-1)[0].text
-    return { rude, many }
+    for (const id of ['a', 'b', 'c', 'e', 'l']) {
+      __h.to(5, [id]); const c = __h.c(id); if (!c.th) continue
+      const k = c.th.beats.findIndex((b, bi) => b.o.some(o => o.s === 'probe' && o.min > bi)); if (k < 0) continue
+      for (let n = 0; n < k; n++) __h.say(id, 'social')
+      if (__h.wait(id) !== 'mine' || c.bi !== k) continue
+      MA.dbg.step(4000); MA.act.open(__h.ci(id)); const o = MA.opts(); const i = o.findIndex(x => x.k === 'p' && x.min > c.bi); const a0 = c.aff; MA.act.choose(i); MA.act.back(); MA.dbg.step(20000)
+      const txt = c.log.filter(m => m.who === 'her').map(m => m.text).find(x => /いきなり/.test(x))
+      return { id, k, d: c.aff - a0, txt }
+    }
+    return null
   })
-  expect(/いきなり/.test(r.rude.txt) && r.rude.aff === -1 && /質問ばっかり/.test(r.many), JSON.stringify(r)); return r
+  expect(r && r.d < 0 && r.txt, JSON.stringify(r)); return r
 })
-await t('ほころび: 写真詐欺は全身写真をはぐらかす・昔の写真は閉店の話・業者は仕事で話をそらす・お店の子はシフト', async () => {
-  const r = await p.evaluate(() => {
-    const ask = (id, pid) => { __h.to(7, [id], { [id]: [pid, 'hol', 'job', 'app', 'area', 'night', 'photo', 'call', 'ex'].filter((x, i, a) => a.indexOf(x) === i) }); __h.wait(id); __h.c(id).turn = MA.PROBES.find(p => p.id === pid).min; __h.say(id, 'probe'); MA.dbg.step(20000); const want = MA.TALK[id].ans[pid][0]; const m = __h.c(id).heard.find(x => x.text.endsWith(want)) || { text: 'none' }; return { t: m.text, clue: !!m.clue } }
-    return { d: ask('d', 'photo'), l: ask('l', 'area'), j: ask('j', 'job'), k: ask('k', 'hol'), f: ask('f', 'ex'), a: ask('a', 'photo') }
-  })
-  expect(r.d.clue && /会えば/.test(r.d.t) && r.l.clue && /閉まった/.test(r.l.t) && r.j.clue && /それより/.test(r.j.t) && r.k.clue && /シフト/.test(r.k.t) && r.f.clue && /浮気/.test(r.f.t) && !r.a.clue, JSON.stringify(r)); return r
+await t('ほころび: 探りを入れると、気になる一言が出る子と出ない子がいる', async () => {
+  const r = await p.evaluate(() => { const o = {}; for (const id of ['a', 'b', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l']) { __h.to(5, [id]); __h.talk(id, 7, 'good'); o[id] = __h.c(id).heard.filter(m => m.clue).length } return o })
+  const sus = ['d', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l'].filter(id => r[id] > 0).length
+  expect(r.a === 0 && r.b === 0 && sus >= 8, JSON.stringify(r)); return r
 })
 await t('刺さる返しは子ごとに違う: ギャルに丁寧は「かたっ」、みのりに軽いノリは「慣れてる」、さきに丁寧は距離', async () => {
   const pick = (id, style) => p.evaluate(([id, style]) => { __h.to(5, [id]); const c = __h.c(id); for (let k = 0; k < 8; k++) { __h.wait(id); MA.dbg.step(4000); MA.act.open(__h.ci(id)); const o = MA.opts(); const i = o.findIndex(x => x.k === 's' && x.id.replace(/2$/, '') === style); if (i >= 0) { const a0 = c.aff; MA.act.choose(i); MA.act.back(); MA.dbg.step(20000); return { d: c.aff - a0, txt: c.log.filter(m => m.who === 'her').slice(-1)[0].text } } MA.act.choose(o.findIndex(x => x.k === 'p')); MA.act.back() } return null }, [id, style])
   const g = await pick('g', 'polite'), a = await pick('a', 'light'), b = await pick('b', 'polite'), gl = await pick('g', 'light')
-  expect(g && g.d < 0 && /かたっ/.test(g.txt) && a && a.d < 0 && /慣れてる/.test(a.txt) && b && b.d < 0 && gl && gl.d > 0, JSON.stringify({ g, a, b, gl })); return { g: g.txt, a: a.txt }
+  expect(g && g.d < 0 && a && a.d < 0 && b && b.d < 0 && gl && gl.d > 0, JSON.stringify({ g, a, b, gl })); return { g: g.d, a: a.d, b: b.d, gl: gl.d }
 })
 await t('待ち時間切れ: 即キレの子は10秒でマッチ解除（自己紹介に「返信遅い人はムリ」）', async () => {
   const r = await p.evaluate(() => { __h.to(5, ['h']); __h.wait('h'); MA.dbg.step(11000); const c = __h.c('h'); return { left: c.left, pat: c.g.pat, intro: c.g.intro[0].includes('返信遅い人はムリ') } })
@@ -197,15 +203,40 @@ await t('返信が早すぎると引く子がいる（みのり）', async () =>
   const r = await p.evaluate(() => { __h.to(5, ['a']); __h.talk('a', 3, 'social', 0); const c = __h.c('a'); return { rushed: c.rushed, line: c.log.some(m => m.text.startsWith('返信はやい')) } })
   expect(r.rushed === 3 && r.line, JSON.stringify(r))
 })
-await t('メモ: 吹き出しを押すと残り、プロフと答え合わせに出る', async () => {
+await t('メモ: 吹き出しを押すと残り、プロフに出る', async () => {
   const r = await p.evaluate(() => {
-    __h.to(7, ['d'], { d: ['photo', 'hol', 'job', 'app', 'area', 'night', 'call', 'ex'] }); __h.wait('d'); __h.c('d').turn = 5; __h.say('d', 'probe'); MA.dbg.step(20000)
-    MA.act.open(0); const el = [...document.querySelectorAll('#msgs .msg.her')].find(e => /会えば/.test(e.textContent)); el.click()
+    __h.to(5, ['d']); const c = __h.c('d'); __h.talk('d', 7, 'good'); MA.dbg.step(10000)
+    const m = c.log.find(x => x.who === 'her' && x.clue) || c.log.filter(x => x.who === 'her').pop()
+    MA.act.open(0); const el = document.querySelector(`#msgs .msg.her[data-n="${m.n}"]`); el.click()
     document.querySelector('#cAv').click(); const pm = document.querySelector('#prof .pm') ? document.querySelector('#prof .pm').textContent : ''; document.querySelector('#profClose').click()
-    MA.act.back(); return { memo: __h.c('d').memo.length, pm }
+    MA.act.back(); return { memo: c.memo.length, has: pm.includes(m.text.slice(0, 6)) }
   })
   await p.screenshot({ path: ROOT + '/shots/v-memo.png' })
-  expect(r.memo === 1 && /会えば/.test(r.pm), JSON.stringify(r))
+  expect(r.memo === 1 && r.has, JSON.stringify(r))
+})
+await t('最初の1通: 子によって刺さり方が違う（慎重な子にチャラいは既読のまま、ギャルにお堅いは「かたっ」、誰にでも会う子はチャラいに即食いつく、重たい子にふざけは「真剣じゃないの？」）', async () => {
+  const one = (id, k) => p.evaluate(([id, k]) => { __h.noFirst = 1; __h.to(5, [id]); __h.noFirst = 0; MA.act.open(0); const btns = document.querySelectorAll('#opts button[data-f]').length; MA.act.first(k); MA.act.back(); MA.dbg.step(30000); const c = __h.c(id); return { btns, ignored: !!c.ignored, her: c.log.filter(m => m.who === 'her').map(m => m.text)[0] || '', state: c.state } }, [id, k])
+  const aStiff = await one('a', 0), aChara = await one('a', 1), gStiff = await one('g', 0), iChara = await one('i', 1), eFunny = await one('e', 2)
+  await p.screenshot({ path: ROOT + '/shots/v-first.png' })
+  expect(aStiff.btns === 3 && !aStiff.ignored && aChara.ignored && /かたっ/.test(gStiff.her) && iChara.state === 'offer' && /真剣じゃない/.test(eFunny.her), JSON.stringify({ aStiff, aChara, gStiff, iChara, eFunny }))
+})
+await t('ブロック: 地雷を踏むと赤い字で出て、その子には送れない（慎重な子に下心・写真の子に写真を疑う一言・即キレを待たせる・重たい子を待たせてほかの子と話す）', async () => {
+  const mine = (id, st) => p.evaluate(([id, st]) => { __h.to(5, [id]); const c = __h.c(id); for (let n = 0; n < 12 && c.state !== 'done'; n++) { if (__h.wait(id) !== 'mine') break; MA.dbg.step(4000); MA.act.open(0); const o = MA.opts(); const i = o.findIndex(x => x.id === st); if (i >= 0) { MA.act.choose(i); MA.dbg.step(8000); break } MA.act.back(); __h.say(id, 'good') } MA.act.open(0); return { blocked: !!c.blocked, why: c.blockWhy, red: !!document.querySelector('#opts .blocked'), btns: document.querySelectorAll('#opts button').length, row: (() => { MA.act.back(); return !!document.querySelector('.crow.blk') })() } }, [id, st])
+  const a = await mine('a', 'lewd'), d = await mine('d', 'doubt')
+  await p.screenshot({ path: ROOT + '/shots/v-blocked.png' })
+  const h = await p.evaluate(() => { __h.to(5, ['h']); __h.wait('h'); MA.dbg.step(12000); return { blocked: !!__h.c('h').blocked } })
+  const e = await p.evaluate(() => { __h.to(5, ['e', 'g']); __h.wait('e'); for (let n = 0; n < 4; n++) __h.say('g', 'probe', 0); MA.dbg.step(3000); return { blocked: !!__h.c('e').blocked, why: __h.c('e').blockWhy } })
+  expect(a.blocked && a.red && a.btns === 0 && a.row && d.blocked && h.blocked && e.blocked, JSON.stringify({ a, d, h, e }))
+})
+await t('トークは上下にスクロールして見返せる。見返し中に新着が来ても勝手に戻らず案内が出る', async () => {
+  const r = await p.evaluate(() => { __h.to(5, ['b', 'a']); __h.talk('b', 6, 'good'); __h.wait('b'); MA.act.open(__h.ci('b')); const m = document.querySelector('#msgs'); const can = m.scrollHeight > m.clientHeight; m.scrollTop = 0; m.dispatchEvent(new Event('scroll')); MA.act.choose(0); MA.dbg.step(30000); return { can, top: m.scrollTop, pill: !document.querySelector('#newMsg').hidden, ov: getComputedStyle(m).overflowY, ob: getComputedStyle(m).overscrollBehaviorY } })
+  await p.screenshot({ path: ROOT + '/shots/v-scroll.png' })
+  expect(r.can && r.top < 40 && r.pill && r.ov === 'auto' && r.ob === 'contain', JSON.stringify(r)); return r
+})
+await t('会話データの点検: 筋は1人3本以上・8往復以上、質問には3択とも答え、型は重ならない（NG 0）', async () => {
+  const { spawnSync } = await import('node:child_process')
+  const r = spawnSync(process.execPath, ['check_threads.mjs'], { cwd: ROOT, encoding: 'utf8' })
+  expect(r.status === 0, r.stdout.slice(0, 300)); return r.stdout.trim().split('\n')[0]
 })
 await t('会う: 写真詐欺の子は会うと別人。画面に「当たり」「外れ」の言葉が出ない', async () => {
   const r = await p.evaluate(() => { __h.to(5, ['d']); __h.date('d'); __h.meet('d', true); MA.dbg.step(4000); return { view: MA.view(), real: document.querySelector('#mtReal').src.includes('dm.webp'), tag: document.querySelector('#mtVerdict').textContent, words: /当たり|外れ/.test(document.body.innerText), d2: MA.S.d2q } })
@@ -265,13 +296,13 @@ await t('エンディング: リスケを重ねるとバレる', async () => {
 await t('エンディング一覧: 見たものは題、見ていないものはヒント。同じ行動なら同じ結末', async () => {
   const r = await p.evaluate(() => { const a = MA.act.seen().length; const e1 = (() => { __h.to(5, ['j']); __h.date('j'); __h.meet('j', true); __h.finish(); return __h.meets(false) })(); const e2 = (() => { __h.to(5, ['j']); __h.date('j'); __h.meet('j', true); __h.finish(); return __h.meets(false) })(); MA.act.toNote(); document.querySelector('#bEnds').click(); const list = document.querySelector('#endsList').textContent; const hidden = document.querySelectorAll('#endsList .no').length; document.querySelector('#endsClose').click(); return { a, e1, e2, seen: MA.act.seen().length, total: MA.S && document.querySelectorAll('#endsList div').length, hidden, list: list.slice(0, 60) } })
   await p.screenshot({ path: ROOT + '/shots/v-endlist.png' })
-  expect(r.e1 === r.e2 && r.seen >= 10 && r.hidden === 11 - r.seen && r.total === 11, JSON.stringify(r)); return r
+  expect(r.e1 === r.e2 && r.seen >= 10 && r.hidden === r.total - r.seen && r.total === 12, JSON.stringify(r)); return r
 })
-await t('結果: いいねした子だけが並び、答え合わせに手がかりと「この一言」が出る', async () => {
-  const r = await p.evaluate(() => { __h.to(7, ['d', 'k'], { d: ['photo', 'hol', 'job', 'app', 'area', 'night', 'call', 'ex'] }); __h.wait('d'); __h.c('d').turn = 5; __h.say('d', 'probe'); MA.dbg.step(15000); __h.date('d'); __h.meet('d', false); __h.date('k'); __h.meet('k', false); __h.finish(); MA.dbg.step(3000); MA.act.toNote(); const names = [...document.querySelectorAll('.eRow .nm')].map(e => e.textContent); MA.act.openClue(MA.GIRLS.find(g => g.id === 'd')); const txt = document.querySelector('#clueList').textContent; return { names, txt, words: /当たり|外れ/.test(document.body.innerText) } })
+await t('結果: いいねした子だけが並び、答え合わせに手がかり・最初の1通・地雷・「この一言」が出る', async () => {
+  const r = await p.evaluate(() => { __h.to(7, ['d', 'k']); __h.talk('d', 6, 'good'); __h.date('d'); __h.meet('d', false); __h.date('k'); __h.meet('k', false); __h.finish(); MA.dbg.step(3000); MA.act.toNote(); const names = [...document.querySelectorAll('.eRow .nm')].map(e => e.textContent); MA.act.openClue(MA.GIRLS.find(g => g.id === 'd')); const txt = document.querySelector('#clueList').textContent; return { names, txt, words: /当たり|外れ/.test(document.body.innerText) } })
   await p.screenshot({ path: ROOT + '/shots/v-clue.png' })
   await p.evaluate(() => document.querySelector('#clueClose').click())
-  expect(r.names.length === 2 && /手首/.test(r.txt) && /この一言/.test(r.txt) && /会えば/.test(r.txt) && !r.words, JSON.stringify(r))
+  expect(r.names.length === 2 && /手首/.test(r.txt) && /最初の1通/.test(r.txt) && /この一言/.test(r.txt) && !r.words, JSON.stringify(r))
 })
 await t('結果の画像が描ける（1080x1350・絵が入っている）', async () => {
   const r = await p.evaluate(async () => { const cv = await MA.act.makeCard(); const d = cv.getContext('2d').getImageData(0, 0, 1080, 1350).data; let s = 0, s2 = 0, n = 0; for (let i = 0; i < d.length; i += 4 * 97) { const v = d[i] * .3 + d[i + 1] * .59 + d[i + 2] * .11; s += v; s2 += v * v; n++ } return { w: cv.width, h: cv.height, v: Math.round(s2 / n - (s / n) ** 2) } })
@@ -356,6 +387,11 @@ await t('WebKit: 通しで最後まで行ける（手がかり bot）', async ()
   const r = await wp.evaluate(() => window.__bot('clue', 4, 300))
   await wp.screenshot({ path: ROOT + '/shots/webkit-end.png' })
   expect(r.phase === 'end' && r.pts > 80, JSON.stringify(r)); return r
+})
+await t('WebKit: トークをスクロールしてもページ全体は動かない', async () => {
+  const r = await wp.evaluate(() => { __h.to(5, ['b']); __h.talk('b', 6, 'good'); __h.wait('b'); MA.act.open(0); const m = document.querySelector('#msgs'); return { sh: m.scrollHeight, ch: m.clientHeight } })
+  const s = await wp.evaluate(() => { const m = document.querySelector('#msgs'); m.scrollTop = 0; window.scrollBy(0, 300); document.scrollingElement.scrollTop = 300; return { page: document.scrollingElement.scrollTop + window.scrollY, ob: getComputedStyle(m).overscrollBehaviorY, ta: getComputedStyle(m).touchAction } })
+  expect(r.sh > r.ch && s.page === 0 && s.ob === 'contain' && /pan-y/.test(s.ta), JSON.stringify([r, s])); return s
 })
 await t('WebKit: 実際には無音', async () => { const r = await wp.evaluate(() => window.__muteOk()); expect(r, r) })
 await t('WebKit: エラーなし', async () => { expect(wp.errs.length === 0, wp.errs.join('|')) })

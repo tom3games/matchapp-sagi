@@ -173,8 +173,11 @@ img{-webkit-user-drag:none;user-select:none}
 .chead img{width:38px;height:38px;border-radius:50%;object-fit:cover;object-position:50% 25%}
 .chead b{display:block;font:900 17px var(--sans)}
 .chead span{display:block;font:500 12px var(--sans);color:var(--sub)}
-#msgs{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;padding:10px 12px 6px;gap:7px}
-.msg{max-width:80%;padding:8px 12px;border-radius:16px;font:500 15px/1.45 var(--sans);animation:msgIn .2s ease-out both;flex:none}
+#msgs{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y;display:flex;flex-direction:column;padding:10px 12px 6px;gap:7px}
+#msgs > :first-child{margin-top:auto}
+#newMsg{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(178px + var(--bot));z-index:6;background:var(--ink);color:#fff;font:700 13px var(--sans);padding:7px 14px;border-radius:16px;box-shadow:0 4px 12px rgba(0,0,0,.3)}
+.msg{max-width:80%;padding:8px 12px;border-radius:16px;font:500 15px/1.45 var(--sans);flex:none}
+.msg.fresh{animation:msgIn .2s ease-out both}
 @keyframes msgIn{from{transform:translateY(8px);opacity:0}to{transform:none;opacity:1}}
 .msg.her{align-self:flex-start;background:var(--card);border-bottom-left-radius:4px;margin-left:34px;position:relative}
 .msg.her::before{content:"";position:absolute;left:-34px;bottom:0;width:28px;height:28px;border-radius:50%;background:var(--av) 50% 25%/cover #ccc}
@@ -203,6 +206,10 @@ html[lang=en] .msg.memo::after{content:"note"}
 #clue li.q{color:#8a3a2a}
 #mtVerdict.neutral{color:#f3e9c8;border-color:#f3e9c8}
 #mtOpts button[data-d]{text-align:center;font:700 16px var(--sans)}
+#opts .blocked{margin:auto;font:900 17px var(--sans);color:var(--red)}
+.msg.block{align-self:center;background:#fbe3e1;color:var(--red);font:900 15px var(--sans);border:2px solid var(--red);border-radius:8px}
+.crow.blk .mid span{color:var(--red);font-weight:900}
+.eSum .bk,.eRow .mt.bk,#clue li.bk{color:var(--red)}
 #opts .hint{margin:auto;font:500 13px var(--sans);color:var(--sub)}
 #opts button{text-align:left;min-height:46px;padding:7px 14px;border-radius:12px;border:1.5px solid var(--line);font:500 14px/1.35 var(--sans);background:#fff}
 #opts button:active{background:#eef4f1}
@@ -327,6 +334,7 @@ canvas#card{display:none}
   #eScore{font-size:34px}#eRank{width:80px;height:80px;font-size:15px;top:calc(40px + env(safe-area-inset-top))}
   .eSum{font-size:12px;line-height:1.5}.eRow{font-size:13px}.eBtns button{min-height:40px;font-size:14px}
   #mtText{font-size:14px}#bMtNext{min-height:46px}
+  #clue .pics{height:24svh}#clue ul{font-size:13px;line-height:1.4;padding-top:2px}#clue h3{padding-top:6px}
 }
 </style>
 </head>
@@ -372,6 +380,7 @@ canvas#card{display:none}
     <div id="room">
       <div class="chead"><button id="rBack" aria-label="back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg><b id="rBadge"></b></button><img id="cAv" alt=""><div><b id="cName"></b><span id="cSub"></span></div></div>
       <div id="msgs"></div>
+      <button id="newMsg" hidden></button>
       <button id="bInvite" hidden></button>
       <div id="pat"><i></i></div>
       <div id="opts"></div>
@@ -439,9 +448,22 @@ canvas#card{display:none}
 </script>
 <script src="tm.js?v=1" data-game="matchapp-sagi"></script>
 <script src="sfx.js?v=1"></script>
-<script src="data.js?v=6"></script>
-<script src="talk.js?v=6"></script>
-<script src="game.js?v=6"></script>
+<script src="data.js?v=7"></script>
+<script src="talk.js?v=7"></script>
+<script>var THREADS = {}</script>
+<script src="threads/a.js?v=7"></script>
+<script src="threads/b.js?v=7"></script>
+<script src="threads/c.js?v=7"></script>
+<script src="threads/d.js?v=7"></script>
+<script src="threads/e.js?v=7"></script>
+<script src="threads/f.js?v=7"></script>
+<script src="threads/g.js?v=7"></script>
+<script src="threads/h.js?v=7"></script>
+<script src="threads/i.js?v=7"></script>
+<script src="threads/j.js?v=7"></script>
+<script src="threads/k.js?v=7"></script>
+<script src="threads/l.js?v=7"></script>
+<script src="game.js?v=7"></script>
 <script src="support.js?v=1" data-ja="缶コーヒー" data-en="a can of coffee"></script>
 </body>
 </html>

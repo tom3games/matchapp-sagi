@@ -2,7 +2,7 @@
 window.__jsUp = true
 ;(function () {
   const $ = s => document.querySelector(s)
-  const LIKES = 4, MEET_WAIT = 60000, D2_WAIT = 60000, GAP = 4000, MAX_UNREAD = 3
+  const LIKES = 4, FIRST_WAIT = 180000, MEET_WAIT = 60000, D2_WAIT = 60000, GAP = 4000, MAX_UNREAD = 3
   // ---- 言語
   let lang = 'ja'
   try { lang = localStorage.getItem('ms_lang') || ((navigator.language || 'ja').startsWith('ja') ? 'ja' : 'en') } catch (e) {}
@@ -58,7 +58,8 @@ window.__jsUp = true
     const shuf = n => { const a = [...Array(n).keys()]; for (let i = n - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [a[i], a[j]] = [a[j], a[i]] } return a }
     const porder = {}, sorder = {}
     for (const g of list) { const pi = shuf(PROBES.length).map(i => PROBES[i].id); porder[g.id] = ['hol', 'job'].filter(x => pi.includes(x)).concat(pi.filter(x => x !== 'hol' && x !== 'job')); if (rng() < .5) porder[g.id].splice(0, 2, porder[g.id][1], porder[g.id][0]); sorder[g.id] = shuf(SOCIAL.length) }
-    S = { seed, rare, perm2, porder, sorder, sends: [], yesAt: {}, resched: 0, clash: null, rngT: rngOf((seed || 1) * 7 + 3), d2: {}, order: list, idx: 0, likesLeft: LIKES, battT: 0, phase: 'swipe', pred: {}, dec: {}, liked: [], chats: [], ci: 0, mi: 0, met: [], loupeN: 0, perm, tut: false, photo: 0, sheet: false, done: false }
+    const thread = {}; for (const g of list) { const th = (window.THREADS || {})[g.id]; if (th && th.length) thread[g.id] = Math.floor(rng() * th.length) }
+    S = { seed, rare, perm2, porder, sorder, thread, sends: [], yesAt: {}, resched: 0, clash: null, rngT: rngOf((seed || 1) * 7 + 3), d2: {}, order: list, idx: 0, likesLeft: LIKES, battT: 0, phase: 'swipe', pred: {}, dec: {}, liked: [], chats: [], ci: 0, mi: 0, met: [], loupeN: 0, perm, tut: false, photo: 0, sheet: false, done: false }
   }
   // ---- 画面切り替え
   const VIEWS = ['vTitle', 'vSwipe', 'vMatch', 'vChat', 'vMeet', 'vEnding', 'vEnd']
@@ -76,7 +77,7 @@ window.__jsUp = true
     const ldt = $('#ldText'); if (ldt) ldt.textContent = t.loading
     $('#howH').textContent = t.howH; $('#howBody').innerHTML = t.howBody.map(s => '<p>' + s + '</p>').join(''); $('#howClose').textContent = t.close; $('#howCredit').textContent = t.credit
     $('#bSave').textContent = t.save; $('#bPost').textContent = t.post; $('#bAgain').textContent = t.again; $('#bTitle').textContent = t.toTitle
-    $('#clueClose').textContent = t.close; $('#bToChat').textContent = t.toChat; $('#bMtNext').textContent = t.next
+    $('#clueClose').textContent = t.close; $('#newMsg').textContent = t.newMsg; $('#bToChat').textContent = t.toChat; $('#bMtNext').textContent = t.next
     if (S && S.view === 'vSwipe') { renderCards(); hud() }
     if (S && S.view === 'vEnd') renderEnd()
   }
@@ -208,7 +209,7 @@ window.__jsUp = true
     if (S.phase !== 'swipe') return
     S.phase = 'match'; setLoupe(false); $('#tip').hidden = true
     for (const g of S.order) if (!S.dec[g.id]) S.dec[g.id] = 'none'
-    S.chats = S.liked.map(id => ({ g: GIRLS.find(x => x.id === id), turn: 0, aff: 0, run: 0, asked: [], heard: [], memo: [], log: [], unread: 0, rushed: 0, state: 'wait', patLen: 0, left: false, offered: false, meet: null, invBlock: 0, deep: 0 }))
+    S.chats = S.liked.map(id => ({ th: (window.THREADS || {})[id] ? THREADS[id][S.thread[id]] : null, bi: 0, g: GIRLS.find(x => x.id === id), turn: 0, aff: 0, run: 0, asked: [], heard: [], memo: [], log: [], unread: 0, rushed: 0, state: 'wait', patLen: 0, left: false, offered: false, meet: null, invBlock: 0, deep: 0 }))
     if (!S.chats.length) { finish(); return }
     show('vMatch'); const t = L()
     $('#mH').textContent = t.matched
@@ -221,7 +222,8 @@ window.__jsUp = true
     if (S.phase !== 'match') return; cancel(S.mT); S.phase = 'chat'; S.open = -1; show('vChat')
     const t = L(); $('#lH').textContent = t.chatH; $('#lSub').textContent = t.chatSub(S.chats.length)
     $('#room').classList.remove('on')
-    S.chats.forEach(c => herSend(c, tx(TALK[c.g.id].open), () => myTurn(c)))
+    // 最初の1通はこちらから送る
+    S.chats.forEach(c => { c.state = 'first'; c.myT0 = G.t; c.patLen = FIRST_WAIT; c.patT = after(FIRST_WAIT, () => { if (c.state !== 'first') return; c.patLen = 0; push(c, 'sys', L().noFirst); done(c) }) })
     renderList()
   }
   // ================= トーク（同時進行・探りを入れる） =================
@@ -231,7 +233,7 @@ window.__jsUp = true
   const idxOf = c => S.chats.indexOf(c)
   const byId = id => S.chats.find(c => c.g.id === id)
   const atari = g => g.type === 'atari'
-  function herSend(c, text, then, d, clue) {
+  function herSend(c, text, then, d, clue, ctx) {
     c.state = 'wait'; c.typing = false
     const ms = d == null ? spd(c) : d
     const at = Math.max(G.t + ms, (S.lastDue || 0) + GAP); S.lastDue = at
@@ -239,10 +241,13 @@ window.__jsUp = true
     const arrive = () => {
       if (S.phase !== 'chat') return
       // 一度に未読が増えすぎないよう、ほかの子の未読が多い間は待たせる
-      const unread = S.chats.reduce((a, x) => a + (x === c ? 0 : x.unread), 0)
+      const unread = S.chats.reduce((a, x) => a + (x === c || x.state === 'done' ? 0 : x.unread), 0)
       // こちらが返した後の返事は止めない（1人とじっくり話している時に止まらないように）。止めるのは最初の1通だけ
-      if (S.open !== idxOf(c) && unread >= MAX_UNREAD && !c.log.some(m => m.who === 'me')) { c.dueT = after(3000, arrive); return }
+      // ただし、返せる子が1人もいない時は止めない（全員が止まって動かなくなるのを防ぐ）
+      const busy = S.chats.some(x => x !== c && ['mine', 'offer', 'clash', 'first'].includes(x.state))
+      if (S.open !== idxOf(c) && unread >= MAX_UNREAD && (S.lastSent !== c || c.unread >= 1) && busy) { c.dueT = after(3000, arrive); return }
       c.typing = false
+      c.ctx = ctx || null
       push(c, 'her', text, clue)
       then && then()
     }
@@ -253,26 +258,48 @@ window.__jsUp = true
     if (clue) m.clue = 1
     c.log.push(m); if (c.log.length > 40) c.log.shift()
     if (who === 'her') { c.heard.push(m); c.arrivedAt = G.t; if (S.open !== idxOf(c)) { c.unread++; banner(c, text) } sfx('notif', { vol: 0.6 }) }
-    if (who === 'me') S.sends.push({ t: G.t, id: c.g.id })
+    if (who === 'me') {
+      S.sends.push({ t: G.t, id: c.g.id }); S.lastSent = c
+      for (const h of S.chats) if (h !== c && h.state === 'mine' && (TALK[h.g.id].mines || []).includes('others')) { h.otherN = (h.otherN || 0) + 1; if (h.otherN >= 3) after(1200, () => { if (h.state === 'mine') { push(h, 'her', L().sawOthers); block(h, L().whyOthers) } }) }
+    }
     c.last = G.t
     refresh(c)
   }
   function myTurn(c) {
     if (c.state === 'done') return
+    c.otherN = 0
     c.state = 'mine'; c.myT0 = G.t; c.patLen = c.g.pat * 1000
     cancel(c.patT); c.patT = after(c.patLen, () => timeoutC(c))
     refresh(c)
   }
   // こちらの3択: まだ聞いていない探り2つ＋ふつうの返し1つ（並びは種で決まる）
+  // 3択は相手の直前の一言への返事として組む（質問なら全部その答え、つらい話・あいさつ・疲れた話は専用、ふつうの話は受けてつなぐ）
+  const beatOf = c => c.th && c.th.beats[c.bi]
   function optsFor(c) {
-    const ord = S.porder[c.g.id], left = ord.filter(id => !c.asked.includes(id))
-    const o = left.slice(0, 1).map(id => ({ k: 'p', id }))
-    const so = S.sorder[c.g.id], used = new Set()
-    for (let si = c.turn * 2, n = 0; o.length < 3 && n < SOCIAL.length * 2; si++, n++) { const s = SOCIAL[so[si % SOCIAL.length]]; if (used.has(styleOf(s.id))) continue; used.add(styleOf(s.id)); o.push({ k: 's', id: s.id }) }
+    const b = beatOf(c)
+    if (b) {
+      const o = b.o.map(x => ({ k: x.s === 'probe' ? 'p' : 's', id: x.s, t: x.t, r: x.r, c: x.c, min: x.min || 0, beat: 1 }))
+      const r = (c.bi * 7 + S.seed) % 3
+      return [o[r % 3], o[(r + 1) % 3], o[(r + 2) % 3]]
+    }
+    const ctx = c.ctx || '', left = S.porder[c.g.id].filter(id => !c.asked.includes(id)), pid = left[0]
+    const set = QA[ctx] || (GREET_LINES.includes(ctx) ? GREET : SAD_LINES.includes(ctx) ? SAD : null)
+    let o
+    if (set) {
+      o = set.a.map(([st, ja, en]) => ({ k: 's', id: st, t: [ja, en] }))
+      o.push(pid ? { k: 'p', id: pid, pre: set.p } : { k: 's', id: 'polite2', t: REPLY.polite2 })
+    } else {
+      const react = REACT_LINES.includes(ctx), pool = react ? REACT : REPLY
+      o = pid ? [{ k: 'p', id: pid, pre: react ? REACT_BRIDGE : BRIDGE }] : []
+      const tired = !react && TIRED_LINES.includes(ctx), used = new Set()
+      if (tired) { o.push({ k: 's', id: 'empathy2', t: REPLY.empathy2 }); used.add('empathy') }
+      const so = S.sorder[c.g.id]
+      for (let si = c.turn * 2, n = 0; o.length < 3 && n < SOCIAL.length * 2; si++, n++) { const s = SOCIAL[so[si % SOCIAL.length]]; if (s.id === 'empathy2' || used.has(styleOf(s.id))) continue; used.add(styleOf(s.id)); o.push({ k: 's', id: s.id, t: pool[s.id] }) }
+    }
     const r = (c.turn * 7 + S.seed) % 3
     return [o[r % 3], o[(r + 1) % 3], o[(r + 2) % 3]]
   }
-  const optText = o => o.k === 'p' ? tx(PROBES.find(p => p.id === o.id).q) : tx(SOCIAL.find(s => s.id === o.id).t)
+  const optText = o => o.beat || o.k !== 'p' ? tx(o.t) : tx(o.pre || BRIDGE) + tx(PROBES.find(p => p.id === o.id).q)
   function choose(oi) {
     const c = S.chats[S.open]
     if (S.phase !== 'chat' || !c || c.state !== 'mine') return
@@ -282,22 +309,37 @@ window.__jsUp = true
     let pre = ''
     if (g.tooFast && G.t - c.arrivedAt < g.tooFast) { c.rushed++; c.aff--; if (c.rushed === 1 && g.fastLine) pre = tx(g.fastLine) }
     push(c, 'me', optText(o)); sfx('reply', { vol: 0.5 })
-    let reply, clue = 0, instant = false
-    if (o.k === 'p') {
+    let reply, clue = 0, instant = false, ctx = null
+    if (o.beat) {
+      // 筋の3択: 型で好感が動く。探りは時期が早いと引かれ、続けすぎても引かれる
+      const st = o.id, v = st === 'probe' ? 0 : ((tk.like && tk.like[st]) || 0)
+      if (st === 'probe') {
+        c.run++
+        if (!tk.eager && c.bi < o.min) { c.aff--; pre += lang === 'ja' ? 'え、いきなり？ ' : 'Whoa, already? ' }
+        else if (!tk.eager && c.run >= 4) { c.aff--; pre += lang === 'ja' ? '質問ばっかりだね笑 ' : 'So many questions, lol. ' }
+      } else { c.run = 0; c.aff += v }
+      c.styles = c.styles || []; c.styles.push(st)
+      if (tk.heavy && (st === 'polite' || st === 'empathy')) c.deep++
+      if ((st === 'lewd' || st === 'doubt') && (tk.mines || []).includes(st)) { c.turn++; c.bi++; return herSend(c, tx(o.r), () => block(c, optText(o)), 1500) }
+      if (st === 'praise' && g.id === 'i') instant = true
+      reply = tx(o.r); clue = o.c ? 1 : 0
+      c.bi++
+    } else if (o.k === 'p') {
       const p = PROBES.find(x => x.id === o.id); c.asked.push(o.id); c.run++
-      const a = tk.ans[o.id]; reply = tx(a); clue = a[2] ? 1 : 0
+      const a = tk.ans[o.id]; reply = tx(a); clue = a[2] ? 1 : 0; ctx = a[0]
       if (!tk.eager && c.turn < p.min) { c.aff--; pre += lang === 'ja' ? 'え、いきなり？ ' : 'Whoa, already? ' }
       else if (!tk.eager && c.run >= 4) { c.aff--; pre += lang === 'ja' ? '質問ばっかりだね笑 ' : 'So many questions, lol. ' }
     } else {
       // 刺さる返しは子ごとに違う
-      const s = SOCIAL.find(x => x.id === o.id), st = styleOf(s.id), v = (tk.like && tk.like[st]) || 0
+      const st = styleOf(o.id), v = (tk.like && tk.like[st]) || 0, s = { flatter: st === 'praise' }
       c.run = 0; c.aff += v; c.styles = c.styles || []; c.styles.push(st)
       if (tk.heavy && (st === 'polite' || st === 'empathy')) c.deep++
-      reply = tk.re && tk.re[st] ? tx(tk.re[st]) : tx((v < 0 ? tk.meh : tk.nice)[c.turn % 2])
+      const rr = tk.re && tk.re[st] ? tk.re[st] : (v < 0 ? tk.meh : tk.nice)[c.turn % 2]; reply = tx(rr); ctx = rr[0]
       if (s.flatter && g.id === 'i') instant = true
+      if ((st === 'lewd' || st === 'doubt') && (tk.mines || []).includes(st)) { c.turn++; return herSend(c, tx(tk.meh[0]), () => block(c, optText(o)), 1500) }
     }
     c.turn++
-    herSend(c, pre + reply, () => afterReply(c, instant), null, clue)
+    herSend(c, pre + reply, () => afterReply(c, instant), null, clue, ctx)
   }
   function afterReply(c, instant) {
     const g = c.g, tk = TALK[g.id]
@@ -305,8 +347,34 @@ window.__jsUp = true
     if (instant || (!tk.cautious && tk.inviteAt && c.turn >= tk.inviteAt && c.aff >= 0) || (tk.cautious && c.turn >= 8 && c.aff >= 2)) {
       return herSend(c, tx(tk.ask), () => offer(c), 1800, tk.ask[2])
     }
+    if (c.th) {
+      const nb = beatOf(c)
+      if (!nb) { if (tk.cautious && c.aff >= 1) return herSend(c, tx(tk.ask), () => offer(c), 1800, tk.ask[2]); push(c, 'sys', L().fizzle); return done(c) }
+      return herSend(c, tx(nb.her), () => myTurn(c), nb.pause ? 9000 : 1800)
+    }
     if (c.turn >= 12) { push(c, 'sys', L().fizzle); return done(c) }
     myTurn(c)
+  }
+  function firstSend(k) {
+    const c = S.chats[S.open]
+    if (S.phase !== 'chat' || !c || c.state !== 'first') return
+    cancel(c.patT); c.patLen = 0
+    const tk = TALK[c.g.id], f = FIRST[k], v = tk.first[f.id]
+    c.firstK = f.id; c.aff += Math.max(-1, v)
+    push(c, 'me', tx(f.t)); sfx('reply', { vol: 0.5 })
+    if (v <= -2) { c.state = 'wait'; after(spd(c) + 6000, () => { if (S.phase !== 'chat') return; push(c, 'sys', L().ignored); c.ignored = true; done(c) }); refresh(c); return }
+    const re = tk.fre && tk.fre[f.id] ? tx(tk.fre[f.id]) : tx((v < 0 ? tk.meh : tk.nice)[0])
+    if (tk.instantFirst === f.id) return herSend(c, re, () => offer(c))
+    const b0 = beatOf(c)
+    herSend(c, re, () => herSend(c, tx(b0 ? b0.her : tk.open), () => myTurn(c), 1800, 0, b0 ? null : tk.open[0]))
+  }
+  // 地雷を踏むとブロック
+  function block(c, why) {
+    if (c.state === 'done') return
+    cancel(c.patT); cancel(c.dueT); cancel(c.tyT); c.patLen = 0; c.typing = false
+    c.blocked = true; c.left = true; c.blockWhy = why
+    push(c, 'block', L().blocked); sfx('angry')
+    done(c)
   }
   function invite() {
     const c = S.chats[S.open]
@@ -317,7 +385,8 @@ window.__jsUp = true
     c.turn++
     if (tk.cautious && (c.turn < 5 || c.aff < 1 || c.turn < c.invBlock)) {
       c.aff--; c.invBlock = c.turn + 2
-      return herSend(c, tx(tk.early), () => (c.turn >= 12 ? (push(c, 'sys', L().fizzle), done(c)) : myTurn(c)))
+      if (c.th) { c.bi++; return herSend(c, tx(tk.early), () => afterReply(c, false), null, 0, tk.early[0]) }
+      return herSend(c, tx(tk.early), () => (c.turn >= 12 ? (push(c, 'sys', L().fizzle), done(c)) : myTurn(c)), null, 0, tk.early[0])
     }
     herSend(c, tx(tk.yes), () => offer(c), null, tk.yes[2])
   }
@@ -325,13 +394,14 @@ window.__jsUp = true
     if (S.phase !== 'chat' || c.state !== 'mine') return
     const g = c.g; c.patLen = 0; c.timeouts = (c.timeouts || 0) + 1
     if (g.angry) {
-      push(c, 'her', tx(g.timeout)); sfx('angry')
-      after(900, () => { push(c, 'sys', L().left); c.left = true; done(c) })
+      push(c, 'her', tx(g.timeout))
+      after(900, () => block(c, L().whyWait))
       return
     }
     push(c, 'her', L().timeoutQ); c.aff--; c.turn++
+    if (c.th) { c.bi++; return after(1500, () => afterReply(c, false)) }
     if (c.turn >= 12) { push(c, 'sys', L().fizzle); return done(c) }
-    herSend(c, tx(TALK[g.id].meh[1]), () => myTurn(c))
+    herSend(c, tx(TALK[g.id].meh[1]), () => myTurn(c), null, 0, TALK[g.id].meh[1][0])
   }
   function offer(c) {
     const t = L()
@@ -411,13 +481,13 @@ window.__jsUp = true
     $('#clist').innerHTML = order.map(i => {
       const c = S.chats[i], lastMsg = [...c.log].reverse().find(m => m.who !== 'sys') || { text: '' }
       const pv = c.typing ? t.typing + '…' : lastMsg.text
-      return `<button class="crow${c.state === 'done' ? ' done' : ''}" data-i="${i}"><img src="${img(c.g.photos[0])}" alt=""><div class="mid"><b>${esc(tx(c.g.name))}</b><span class="${c.typing ? 'ty' : ''}">${esc(pv)}</span></div><div class="side">${c.unread ? `<span class="badge">${c.unread}</span>` : ''}</div>${c.patLen ? '<i class="wait"></i>' : ''}</button>`
+      return `<button class="crow${c.state === 'done' ? ' done' : ''}${c.blocked ? ' blk' : ''}" data-i="${i}"><img src="${img(c.g.photos[0])}" alt=""><div class="mid"><b>${esc(tx(c.g.name))}</b><span class="${c.typing ? 'ty' : ''}">${esc(c.blocked ? t.blocked : c.state === 'first' ? t.firstQ : pv)}</span></div><div class="side">${c.unread ? `<span class="badge">${c.unread}</span>` : ''}</div>${c.patLen ? '<i class="wait"></i>' : ''}</button>`
     }).join('')
     $('#clist').querySelectorAll('.crow').forEach(b => b.onclick = () => openRoom(+b.dataset.i))
     bars()
   }
   function openRoom(i) {
-    S.open = i; const c = S.chats[i], g = c.g
+    S.open = i; S.stickOpen = -1; $('#newMsg').hidden = true; const c = S.chats[i], g = c.g
     c.unread = 0
     $('#cAv').src = img(g.photos[0]); $('#msgs').style.setProperty('--av', `url("${img(g.photos[0])}")`); $('#cName').textContent = tx(g.name); $('#cSub').textContent = `${g.age} / ${tx(g.job)}`
     $('#room').classList.add('on'); sfx('tap')
@@ -429,11 +499,20 @@ window.__jsUp = true
     const t = L(), g = c.g
     c.unread = 0
     const tot = S.chats.reduce((a, x) => a + x.unread, 0); $('#rBadge').textContent = tot || ''
-    $('#msgs').innerHTML = c.log.slice(-14).map(m => `<div class="msg ${m.who}${m.memo ? ' memo' : ''}" data-n="${m.n}">${esc(m.text)}</div>`).join('') + (c.typing ? '<div class="msg her typing"><i></i><i></i><i></i></div>' : '')
+    const box = $('#msgs'), stick = S.stickOpen !== S.open || box.scrollTop + box.clientHeight >= box.scrollHeight - 30, prevTop = box.scrollTop, prevN = box.dataset.n | 0
+    const fresh = S.stickOpen === S.open ? prevN : 1e9
+    S.stickOpen = S.open
+    $('#msgs').innerHTML = c.log.slice(-80).map(m => `<div class="msg ${m.who}${m.memo ? ' memo' : ''}${m.n > fresh ? ' fresh' : ''}" data-n="${m.n}">${esc(m.text)}</div>`).join('') + (c.typing ? '<div class="msg her typing"><i></i><i></i><i></i></div>' : '')
     $('#msgs').querySelectorAll('.msg.her[data-n]').forEach(e => e.onclick = () => toggleMemo(+e.dataset.n))
+    const lastN = c.log.length ? c.log[c.log.length - 1].n : 0; box.dataset.n = lastN
+    if (stick) { box.scrollTop = box.scrollHeight; requestAnimationFrame(() => { box.scrollTop = box.scrollHeight }); $('#newMsg').hidden = true } else { box.scrollTop = prevTop; if (lastN > prevN && c.log[c.log.length - 1].who === 'her') $('#newMsg').hidden = false }
     const op = $('#opts'), inv = $('#bInvite')
-    inv.hidden = !(c.state === 'mine' && c.turn >= 1)
-    if (c.state === 'mine') {
+    inv.hidden = !(c.state === 'mine' && c.turn >= 1); inv.textContent = t.invite
+    if (c.blocked) { op.innerHTML = `<div class="blocked">${t.blocked}</div>`; bars(); return }
+    if (c.state === 'first') {
+      op.innerHTML = `<div class="sys" style="font:700 13px var(--sans);text-align:center">${t.firstQ}</div>` + FIRST.map((f, i) => `<button data-f="${i}">${esc(tx(f.t))}</button>`).join('')
+      op.querySelectorAll('button').forEach(b => b.onclick = () => firstSend(+b.dataset.f))
+    } else if (c.state === 'mine') {
       op.innerHTML = optsFor(c).map((o, i) => `<button data-o="${i}">${esc(optText(o))}</button>`).join('')
       op.querySelectorAll('button').forEach(b => b.onclick = () => choose(+b.dataset.o))
     } else if (c.state === 'offer') {
@@ -570,6 +649,7 @@ window.__jsUp = true
         res = 'met'
         if (d && !d.no) { d2n++; res = 'd2'; if (d.ok && (hit || g.type === 'sagi')) { d2ok++; pts += 30 } else if (!hit) pts -= 10 }
       } else if (c && !hit && c.meet === false) { avoid++; pts += 15; res = 'avoid' }
+      else if (c && c.blocked) { res = 'blocked'; pts -= 10 }
       else if (c && c.left) res = 'left'
       else if (c) res = 'nomeet'
       return { g, hit, res, c }
@@ -578,7 +658,7 @@ window.__jsUp = true
     const en = st.phase === 'swipe' ? null : ending(st).id
     pts += ({ best: 60, honest: 40, futamata: -40, stalk: -30, exposed: -20 })[en] || 0
     const rank = pts <= 0 ? 0 : pts < 40 ? 1 : pts < 80 ? 2 : pts < 140 ? 3 : 4
-    return { pts, metGood, metBad, avoid, d2ok, d2n, rank, rows, met: metGood + metBad, end: en }
+    return { pts, metGood, metBad, avoid, d2ok, d2n, rank, rows, met: metGood + metBad, end: en, blocked: st.chats.filter(c => c.blocked).length }
   }
   // エンディング（上から順に見て最初に合った1つ）
   function ending(st) {
@@ -598,6 +678,7 @@ window.__jsUp = true
     else if (met('d') && d2ok('d')) { e = 'honest'; v = { d: nm('d') } }
     else if (met('j')) e = 'seminar'
     else if (met('k')) e = 'regular'
+    else if (!metIds.length && st.chats.filter(c => c.blocked).length >= 2) e = 'blocks'
     else if (st.chats.some(c => c.g.id === 'h' && c.left)) e = 'silent'
     else if (!metIds.length) e = 'sleep'
     else e = 'again'
@@ -647,9 +728,9 @@ window.__jsUp = true
     $('#eScore').innerHTML = `${r.pts}<small>${t.rScore}</small>`
     $('#eRank').textContent = t.ranks[r.rank]
     $('#bEnds').textContent = t.endList(seenEnds.length, ENDS.length)
-    $('#eSum').innerHTML = `<span>${t.rMet} ${r.met}</span><span>${t.rD2} ${r.d2n}</span><span>${t.rAvoid} ${r.avoid}</span>`
-    const resL = { d2: lang === 'ja' ? '2回目' : '2nd date', met: lang === 'ja' ? '会った' : 'met', avoid: lang === 'ja' ? '断った' : 'declined', left: lang === 'ja' ? '解除された' : 'unmatched', nomeet: lang === 'ja' ? '会わず' : 'no date', clash: t.clashTag }
-    $('#eList').innerHTML = r.rows.map((x, i) => `<button class="eRow" data-i="${i}"><img src="${img(x.g.photos[0])}" alt=""><span class="nm">${tx(x.g.name)}</span><span class="ty">${tx(x.g.tag)}</span><span class="mt">${resL[x.res] || ''}</span></button>`).join('') || `<p class="eNone">${t.noMatch}</p>`
+    $('#eSum').innerHTML = `<span>${t.rMet} ${r.met}</span><span>${t.rD2} ${r.d2n}</span><span>${t.rAvoid} ${r.avoid}</span><span class="bk">${t.rBlocked} ${r.blocked}</span>`
+    const resL = { d2: lang === 'ja' ? '2回目' : '2nd date', met: lang === 'ja' ? '会った' : 'met', avoid: lang === 'ja' ? '断った' : 'declined', left: lang === 'ja' ? '解除された' : 'unmatched', nomeet: lang === 'ja' ? '会わず' : 'no date', clash: t.clashTag, blocked: t.blockedShort }
+    $('#eList').innerHTML = r.rows.map((x, i) => `<button class="eRow" data-i="${i}"><img src="${img(x.g.photos[0])}" alt=""><span class="nm">${tx(x.g.name)}</span><span class="ty">${tx(x.g.tag)}</span><span class="mt${x.res === 'blocked' ? ' bk' : ''}">${resL[x.res] || ''}</span></button>`).join('') || `<p class="eNone">${t.noMatch}</p>`
     $('#eList').querySelectorAll('.eRow').forEach(b => b.onclick = () => openClue(r.rows[+b.dataset.i].g))
     $('#eTip').textContent = tipLine(r)
   }
@@ -659,7 +740,9 @@ window.__jsUp = true
     $('#clueH').innerHTML = `${esc(tx(g.name))}<small>${esc(tx(g.tag))}</small>`
     const heard = c ? c.heard.filter(m => m.clue) : []
     const hit = TALK[g.id].hit ? `<li class="hd">${lang === 'ja' ? 'この子に刺さったのは' : 'What worked on her'}</li><li class="q">${esc(tx(TALK[g.id].hit))}</li>` : ''
-    $('#clueList').innerHTML = g.clues.slice(0, 2).map(x => '<li>' + esc(tx(x)) + '</li>').join('') + hit + (heard.length ? `<li class="hd">${t.heard}</li>` + heard.slice(0, 3).map(m => '<li class="q">「' + esc(m.text) + '」' + (m.memo ? t.memoed : '') + '</li>').join('') : '')
+    const first = TALK[g.id].firstHit ? `<li class="hd">${lang === 'ja' ? '最初の1通' : 'The opener'}</li><li class="q">${esc(tx(TALK[g.id].firstHit))}</li>` : ''
+    const mine = c && c.blocked ? `<li class="hd bk">${t.mineWas}</li><li class="q bk">「${esc(c.blockWhy)}」</li>` : ''
+    $('#clueList').innerHTML = mine + g.clues.slice(0, 2).map(x => '<li>' + esc(tx(x)) + '</li>').join('') + first + hit + (heard.length ? `<li class="hd">${t.heard}</li>` + heard.slice(0, 3).map(m => '<li class="q">「' + esc(m.text) + '」' + (m.memo ? t.memoed : '') + '</li>').join('') : '')
     $('#clue').hidden = false; S.clueOpen = g.id
   }
   function openEnds() {
@@ -740,6 +823,8 @@ window.__jsUp = true
     $('#bAgain').onclick = () => { sfx('tap'); startGame() }
     $('#bTitle').onclick = () => { S.phase = 'title'; show('vTitle'); bed('bgm', null) }
     $('#rBack').onclick = closeRoom
+    $('#newMsg').onclick = () => { const b = $('#msgs'); b.scrollTop = b.scrollHeight; $('#newMsg').hidden = true }
+    $('#msgs').addEventListener('scroll', () => { const b = $('#msgs'); if (b.scrollTop + b.clientHeight >= b.scrollHeight - 30) $('#newMsg').hidden = true }, { passive: true })
     $('#cAv').onclick = openProf; $('#cName').onclick = openProf; $('#profClose').onclick = closeProf
     $('#clueClose').onclick = () => { $('#clue').hidden = true; S.clueOpen = null }
     $('#clue').onclick = e => { if (e.target.id === 'clue') { $('#clue').hidden = true; S.clueOpen = null } }
@@ -768,8 +853,8 @@ window.__jsUp = true
   window.MA = {
     get S() { return S }, G, GIRLS, SOCIAL, PROBES, TALK, score: () => score(), lang: () => lang,
     dbg: { pause(v = true) { G.paused = v; last = performance.now() }, step(ms) { const n = Math.ceil(ms / 50); for (let i = 0; i < n; i++) advance(Math.min(50, ms - i * 50)) }, speed(x) { G.speed = x }, fizzleAll() { for (const c of S.chats) if (c.state !== 'done') { cancel(c.patT); cancel(c.dueT); cancel(c.tyT); c.patLen = 0; push(c, 'sys', L().fizzle); done(c) } } },
-    act: { start: s => startGame(s), like: () => decide('like'), pass: () => decide('pass'), loupe: setLoupe, photo: setPhoto, choose, invite, clash: k => clashPick(S.chats[S.open], k), sus: k => susPick(S.chats[S.open], k), memo: toggleMemo, d2ask: d2Ask, toNote, ending: () => ending(), seen: () => seenEnds.slice(), open: openRoom, back: closeRoom, prof: openProf, profClose: closeProf, meet: meetChoice, toChat, nextMeet, date2: i => { const g = GIRLS.find(x => x.id === S.met[S.mi]); choose2(S.perm2[g.id][i]) }, date2K: choose2, openClue, makeCard, endSwipe },
-    view: () => S && S.view, opts: () => (S && S.open >= 0 && S.chats[S.open].state === 'mine' ? optsFor(S.chats[S.open]) : []), mine: () => (S ? S.chats.map((c, i) => ({ i, id: c.g.id, state: c.state, since: G.t - (c.arrivedAt || 0), left: c.patLen ? c.patLen - (G.t - c.myT0) : null })) : []), d2opts: () => (S && S.d2wait ? [...document.querySelectorAll('#mtOpts button[data-k]')].map(b => +b.dataset.k) : []),
+    act: { start: s => startGame(s), like: () => decide('like'), pass: () => decide('pass'), loupe: setLoupe, photo: setPhoto, choose, invite, first: firstSend, clash: k => clashPick(S.chats[S.open], k), sus: k => susPick(S.chats[S.open], k), memo: toggleMemo, d2ask: d2Ask, toNote, ending: () => ending(), seen: () => seenEnds.slice(), open: openRoom, back: closeRoom, prof: openProf, profClose: closeProf, meet: meetChoice, toChat, nextMeet, date2: i => { const g = GIRLS.find(x => x.id === S.met[S.mi]); choose2(S.perm2[g.id][i]) }, date2K: choose2, openClue, makeCard, endSwipe },
+    view: () => S && S.view, opts: () => (S && S.open >= 0 && S.chats[S.open].state === 'mine' ? optsFor(S.chats[S.open]) : []), FIRST, mine: () => (S ? S.chats.map((c, i) => ({ i, id: c.g.id, state: c.state, since: G.t - (c.arrivedAt || 0), left: c.patLen ? c.patLen - (G.t - c.myT0) : null })) : []), d2opts: () => (S && S.d2wait ? [...document.querySelectorAll('#mtOpts button[data-k]')].map(b => +b.dataset.k) : []),
   }
   boot()
 })()

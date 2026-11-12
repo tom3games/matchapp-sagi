@@ -163,7 +163,7 @@ const T = {
     howBody: [
       '女の子は11人。写真とプロフを見て、会ってみたい子にいいね。盛った写真や、業者もまじっている。',
       'いいねは4回まで。いいねした子とは同時にトークできる。相手の返事はすぐには来ない。',
-      '返事は3択。休み・仕事・前の恋人・最近の写真などを聞いて、本性を探る。早すぎる質問や質問攻めは引かれる。気になった一言は、吹き出しを押すとメモできる。顔を押すとプロフとメモを見返せる。',
+      '最初の1通はこちらから。返事は3択。休み・仕事・前の恋人・最近の写真などを聞いて、本性を探る。地雷を踏むとブロックされる。早すぎる質問や質問攻めは引かれる。気になった一言は、吹き出しを押すとメモできる。顔を押すとプロフとメモを見返せる。',
       'デートに誘うか、誘われるのを待つ。日時がかぶったらリスケを頼める。会ったあと、2回目も会うかを決める。',
       '行動しだいで結末が変わる。写真は盛ってある。手首・背景・撮った角度・全身の有無を見る。',
     ],
@@ -194,7 +194,7 @@ const T = {
     howBody: [
       'Eleven women. Study the photos and profiles and like the ones you want to meet. Some photos are edited, and some profiles are fronts.',
       'Only 4 likes. Chat with all your matches at once. Replies take time.',
-      'Pick from 3 replies. Ask about days off, work, exes, recent photos to find out who she really is. Asking too early or too much puts people off. Tap a message to save it as a note. Tap her face to review her profile and notes.',
+      'You send the first message. Pick from 3 replies. Step on a landmine and you get blocked. Ask about days off, work, exes, recent photos to find out who she really is. Asking too early or too much puts people off. Tap a message to save it as a note. Tap her face to review her profile and notes.',
       'Ask her out or wait to be asked. If dates clash, you can reschedule. After meeting, decide whether to see her again.',
       'Your actions decide the ending. Photos are edited: check wrists, backgrounds, camera angles, full-body shots.',
     ],
@@ -207,6 +207,7 @@ const T = {
 
 // エンディング（上から順に条件を見て、最初に合った1つに決まる）。{a}{o}{h} は名前に置き換える
 const ENDS = [
+  { id: 'blocks', title: ['ブロックの山', 'A pile of blocks'], text: ['気づけばトーク一覧が赤い文字だらけになっていた。地雷はだいたい、プロフに書いてあった。', 'Before I knew it, my chat list was all red. The landmines were mostly written in their profiles.'], hint: ['地雷を踏み続ける', 'Keep stepping on landmines'] },
   { id: 'clash', title: ['同じ日、同じ店', 'Same day, same place'], text: ['{a}との店に、{o}も来た。2人とも同じ時間を指定されていた。店員が、そっとおしぼりを3つ置いた。', '{o} walked into the same place as {a}. Both had been given the same time. The waiter quietly set down three hand towels.'], hint: ['かぶった約束を、そのままにする', 'Leave a double booking as is'] },
   { id: 'stalk', title: ['既読、見てたよ', 'I saw you read it'], text: ['{h}と会ったあとも、ほかの子に返信していた。既読の時間まで見られていた。朝までに通知が127件。最寄り駅の改札で、{h}が手を振っていた。', 'After meeting {h}, I kept replying to other girls. She tracked every "Read" timestamp. 127 notifications by morning. At my home station gate, {h} was waving.'], hint: ['重たい子と会ったあとの、自分の指', 'What your thumbs do after meeting the clingy one'] },
   { id: 'exposed', title: ['リスケの重ね着', 'Rescheduled to death'], text: ['リスケを頼むたびに、ずらした先がまたかぶった。2人から同じ日に「予定いっぱいなんだね」と届いた。', 'Every time I rescheduled, the new date clashed again. On the same day, both sent: "Busy, huh."'], hint: ['リスケを何度も頼む', 'Reschedule again and again'] },
@@ -282,6 +283,17 @@ const RESCHED = {
     { t: ['なんでそんなこと聞くの？', 'Why would you ask that?'], res: 'cut', r: ['もういい', 'Forget it'] },
   ],
 }
+T.ja.newMsg = '新しいメッセージ'; T.en.newMsg = 'New message'
+T.ja.firstQ = '最初の1通を送る'; T.en.firstQ = 'Send the first message'
+T.ja.noFirst = '最初の1通を送らなかった'; T.en.noFirst = 'You never sent a first message'
+T.ja.ignored = '既読がついたまま、返事が来ない'; T.en.ignored = 'Read, but no reply'
+T.ja.blocked = 'ブロックされました'; T.en.blocked = 'You have been blocked'
+T.ja.blockedShort = 'ブロック'; T.en.blockedShort = 'blocked'
+T.ja.rBlocked = 'ブロックされた'; T.en.rBlocked = 'Blocked by'
+T.ja.mineWas = '地雷だった一言'; T.en.mineWas = 'The landmine'
+T.ja.whyWait = '（返事を10秒以上待たせた）'; T.en.whyWait = '(made her wait over 10 seconds)'
+T.ja.whyOthers = '（返事を待たせたまま、ほかの子とやり取りしていた）'; T.en.whyOthers = '(kept her waiting while chatting with others)'
+T.ja.sawOthers = 'ねえ、既読つけたまま他の子と話してるでしょ'; T.en.sawOthers = 'Hey. You read my message and went to chat with someone else, didn\'t you'
 T.ja.endHead = 'エンディング'; T.en.endHead = 'Ending'
 T.ja.toNote = '反省会ノートへ'; T.en.toNote = 'To the debrief'
 T.ja.endList = (n, m) => `エンディング ${n}/${m}`; T.en.endList = (n, m) => `Endings ${n}/${m}`
