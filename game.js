@@ -59,7 +59,7 @@ window.__jsUp = true
     const porder = {}, sorder = {}
     for (const g of list) { const pi = shuf(PROBES.length).map(i => PROBES[i].id); porder[g.id] = ['hol', 'job'].filter(x => pi.includes(x)).concat(pi.filter(x => x !== 'hol' && x !== 'job')); if (rng() < .5) porder[g.id].splice(0, 2, porder[g.id][1], porder[g.id][0]); sorder[g.id] = shuf(SOCIAL.length) }
     const thread = {}; for (const g of list) { const th = (window.THREADS || {})[g.id]; if (th && th.length) thread[g.id] = Math.floor(rng() * th.length) }
-    S = { seed, rare, perm2, porder, sorder, thread, sends: [], yesAt: {}, resched: 0, clash: null, rngT: rngOf((seed || 1) * 7 + 3), d2: {}, order: list, idx: 0, likesLeft: LIKES, battT: 0, phase: 'swipe', pred: {}, dec: {}, liked: [], chats: [], ci: 0, mi: 0, met: [], loupeN: 0, perm, tut: false, photo: 0, sheet: false, done: false }
+    S = { seed, rare, perm2, porder, sorder, thread, sends: [], yesAt: {}, resched: 0, clash: null, rngT: rngOf((seed || 1) * 7 + 3), rngJ: rngOf((seed || 1) * 13 + 5), d2: {}, order: list, idx: 0, likesLeft: LIKES, battT: 0, phase: 'swipe', pred: {}, dec: {}, liked: [], chats: [], ci: 0, mi: 0, met: [], loupeN: 0, perm, tut: false, photo: 0, sheet: false, done: false }
   }
   // ---- 画面切り替え
   const VIEWS = ['vTitle', 'vSwipe', 'vMatch', 'vChat', 'vMeet', 'vEnding', 'vEnd']
@@ -235,9 +235,11 @@ window.__jsUp = true
   const atari = g => g.type === 'atari'
   function herSend(c, text, then, d, clue, ctx) {
     c.state = 'wait'; c.typing = false
-    const ms = d == null ? spd(c) : d
+    // 本人「既読が早すぎる。ほんの少しランダムで遅らせて」: 読むまで +0.5〜1.5秒、打つ時間 +0〜0.5秒（届くまで計 +0.5〜2秒）。子ごとの速さの差はそのまま
+    const rj = 500 + Math.floor(S.rngJ() * 1000), tj = Math.floor(S.rngJ() * 500)
+    const ms = (d == null ? spd(c) : d) + rj + tj, lead = 1500 + tj
     const at = Math.max(G.t + ms, (S.lastDue || 0) + GAP); S.lastDue = at
-    cancel(c.tyT); c.tyT = after(Math.max(0, at - G.t - 1500), () => { c.typing = true; refresh(c) })
+    cancel(c.tyT); c.tyT = after(Math.max(0, at - G.t - lead), () => { c.typing = true; refresh(c) })
     const arrive = () => {
       if (S.phase !== 'chat') return
       // 一度に未読が増えすぎないよう、ほかの子の未読が多い間は待たせる
